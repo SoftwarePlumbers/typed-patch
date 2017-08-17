@@ -10,17 +10,22 @@ function defaultElementFactory(obj) {
 }
 
 function _map(object, fn) {
-    result = {};
-    for (key of Object.getOwnPropertyNames(object))
-        result[key] = fn(object[key]); 
+    let result = {};
+    for (let key of Object.getOwnPropertyNames(object))
+        result[key] = fn(object[key]);
+    return result; 
 }
 
 // Object operations
 
 class Op {
     toObject() {
-        return { op: this.name, data: _map(this, Patch.fromObject) };
+        return { op: this.name };
     } 
+
+    toString() {
+        return JSON.stringify(this.toObject());
+    }
 }
 
 const Nop = Object.assign(new Op(), {
@@ -31,7 +36,7 @@ const Nop = Object.assign(new Op(), {
 });
 
 const Del = Object.assign(new Op(), {
-    name: "del",
+    name: "Del",
     patch(object) {
         return undefined;
     }
@@ -43,6 +48,10 @@ class Rpl extends Op {
         return element_factory(this.data);
     }
     constructor(data) { super(); this.data = data; }
+    toObject() { return this.data; }
+}
+
+class Ins extends Rpl {
 }
 
 class Mrg extends Op {
@@ -70,11 +79,16 @@ class Mrg extends Op {
         return element_factory(props);
     }
     constructor(data) { super(); this.data = data; }
+    toObject() { return { op: this.name, data: _map(this.data, prop => prop.toObject() ) } }
 }
 
-class ArrayOperation {
+class Row {
     constructor(key, operation) {
-        this.key = key; this.operation = operation;
+        this.key = key; this.op = operation;
+    }
+
+    toObject() {
+        return { key: this.key, op: this.op.toObject() };
     }
 }
 
@@ -89,31 +103,39 @@ class Arr extends Op {
         return 0;
     }
 
-    patch(array, element_factory = defaultElementFactory(object)) {
+    patch(array, element_factory = defaultElementFactory()) {
 
         let result = [];
         array = Array.from(array).sort(Arr.compareUid);
 
         let i = 0;
-        let item = object[i++];
+        let item = array[i++];
 
-        for (let update of this.data) {
-            let update_uid = update.key;
-            while (i <= object.length && item.uid < update_uid) {
+        for (let row of this.data) {
+            while (i <= array.length && item.uid < row.key) {
                 result.push(element_factory(item));
-                item = object[i++];
+                item = array[i++];
             }
-            let patch_item = update.operation.patch(item, element_factory)
-            if (patch_item != undefined) result.push(patch_item);
+            if (row.op instanceof Ins)
+                result.push(row.op.data);
+            else {
+                let patch_item = row.op.patch(item, element_factory);
+                if (patch_item != undefined) result.push(patch_item);
+                item = array[i++];
+            }
         }
 
-        while (i <= object.length) { result.push(item); item = object[i++]; }
+        while (i <= array.length) { result.push(item); item = array[i++]; }
         return result;
     }
 
     constructor(operations) {
         super();
         this.data = operations;
+    }
+
+    toObject() {
+        return { op: this.name, data: this.data.map( row => row.toObject() ) };
     }
 }
     
@@ -146,22 +168,22 @@ class Patch {
             if (ao.uid < bo.uid) {
                 ao = a[ai++]; 
             } else if (ao.uid > bo.uid) {
-                patch.push(new ArrayOperation(bo.uid, new Rpl(bo)));
+                patch.push(new Row(bo.uid, new Ins(bo)));
                 bo = b[bi++];
             } else {
-                if (ao !== bo) patch.push(new ArrayOperation(ao.uid, Patch.compare(ao, bo)));
+                if (ao !== bo) patch.push(new Row(ao.uid, Patch.compare(ao, bo)));
                 ao = a[ai++]; 
                 bo = b[bi++];
             }
         } while (ai <= a.length && bi <= b.length);
                 
         while (ai <= a.length) {
-            patch.push(new ArrayOperation(ao.uid, Del));
+            patch.push(new Row(ao.uid, Del));
             ao=a[ai++]; 
         }
 
         while (bi <= b.length) {
-            patch.push(new ArrayOperation(bo.uid, new Rpl(bo))); 
+            patch.push(new Row(bo.uid, new Rpl(bo))); 
             bo=b[bi++]; 
         }
         
@@ -222,8 +244,8 @@ class Patch {
             else if (object.op === Mrg.name) 
                 return new Mrg(_map(object.data, Patch.fromObject));
             else if (object.op === Arr.name) 
-                return new Arr(object.data.map(Patch.fromObject));
-            else throw new Error('unknown diff.op', item.op);
+                return new Arr(object.data.map(row => new Row(row.key, Patch.fromObject(row.op))));
+            else throw new Error('unknown diff.op', object.op);
         } else {
             return new Rpl(object);   
         }    
