@@ -11,9 +11,9 @@ let breakfast2 = { drink: 'oj', meal: 'pancakes', ingredients: [ eggs, flour, mi
 
 class Article { constructor(props) { Object.assign(this, props); } static fromObject(obj) { return new Article(obj); }}
 
-let article1 = new Article({ uid: 1, markdown: "yes", isPublic: false });
-let article2 = new Article({ uid: 2, markdown: "unflappable", isPublic: true });
-let article3 = new Article({ uid: 3, markdown: "toast", isPublic: true });
+let article1 = new Article({ key: 1, markdown: "yes", isPublic: false });
+let article2 = new Article({ key: 2, markdown: "unflappable", isPublic: true });
+let article3 = new Article({ key: 3, markdown: "toast", isPublic: true });
 
 const logger = { 
     //debug(...args) { console.log(...args); } 
@@ -33,14 +33,15 @@ describe("Diff", () => {
             expect(patch.data.b.data).to.equal(4);
 
             let c = patch.patch(a);
+            logger.debug(c);
             expect(c.b).to.equal(4);
         });
 
         it("can diff arrays", () => {
 
-            let a = [ { uid: 1, text: "numpty" } ];
+            let a = [ { key: 1, text: "numpty" } ];
             let b = Array.from(a);
-            b.push({ uid: 4, text: "tumpty" });
+            b.push({ key: 4, text: "tumpty" });
 
             let patch = Patch.compare(a,b);
             logger.debug(patch);
@@ -58,9 +59,9 @@ describe("Diff", () => {
         });
 
         it("can patch arrays", () => {
-            let a = [ { uid: 1, text: "numpty" } ];
+            let a = [ { key: 1, text: "numpty" } ];
             let b = Array.from(a);
-            b.push({ uid: 4, text: "tumpty" });
+            b.push({ key: 4, text: "tumpty" });
 
             let patch = Patch.compare(a,b);
             let b2 = patch.patch(a);
@@ -99,7 +100,7 @@ describe("Diff", () => {
 
             let diff = Patch.compare(array1, array2);
             logger.debug(diff.toString());
-            let array3=diff.patch(array1, Article.fromObject);
+            let array3=diff.patch(array1, { arrayElementFactory: Article.fromObject } );
             logger.debug(array3);
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
@@ -107,12 +108,12 @@ describe("Diff", () => {
 
         it("can patch an array of articles - updateing a single item in the middle", () => {
             let array1 = [ article1, article2, article3 ];
-            let array2 = [ article1, Object.assign({}, article2, { markdown: "botulism"}), article3 ];
+            let array2 = [ article1, Object.assign(new Article(), article2, { markdown: "botulism"}), article3 ];
 
             let diff = Patch.compare(array1, array2);
             logger.debug(diff.toString());
-            let array3=diff.patch(array1, Article.fromObject);
-
+            let array3=diff.patch(array1, { arrayElementFactory: Article.fromObject });
+            logger.debug(array3);
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
             expect(array3[1].markdown).to.equal("botulism");
@@ -128,12 +129,13 @@ describe("Diff", () => {
             let diff2 = Patch.fromObject(obj);
             let json2 = JSON.stringify(diff2.toObject());
             expect(json1).to.equal(json2);
-            let array3=diff2.patch(array1, Article.fromObject);
+            let array3=diff2.patch(array1, { arrayElementFactory: Article.fromObject });
             logger.debug(JSON.stringify(array3));
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
             expect(array3[1].markdown).to.equal("botulism");
         });
+   
     }
 );
 

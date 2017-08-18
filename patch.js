@@ -1,13 +1,9 @@
 'use strict';
 
-
-
-function defaultElementFactory(obj) {
-    if (obj &&  obj.constructor && obj.constructor.fromObject)
-        return obj.constructor.fromObject;
-    else 
-        return props => props;
-}
+const logger = { 
+    //trace(...args) { console.log(...args); } 
+    trace() {}
+};
 
 function _map(object, fn) {
     let result = {};
@@ -15,6 +11,86 @@ function _map(object, fn) {
         result[key] = fn(object[key]);
     return result; 
 }
+
+function _compareWith(akey, b, options) {
+    let bkey = b[options.key];
+    if (options.keyComparator) return options.keyComparator(akey,bkey);
+    if (akey < bkey) return -1;
+    if (akey > bkey) return 1;
+    return 0;
+}
+
+function _compare(a,b, options) {
+    if (a === b) return 0;
+    return _compareWith(a[options.key],b, options)
+}
+
+
+
+
+
+const DEFAULT_OPTIONS = {
+    elementFactory : false,
+    mergeInPlace : false,
+    key: 'key',
+    keyComparator: false,
+    sorted: false,
+    elementType: false,
+    arrayElementType: false,
+    arrayElementFactory: false
+}
+
+class Options {
+
+    constructor(props) {
+        props = Object.assign(this, DEFAULT_OPTIONS, props);
+    }
+
+    getChildOptions(obj,name) {
+        let options = this.defaults ? new Options(this.defaults) : Object.assign(new Options(this), { defaults: this });
+        if (obj) {
+            let child = obj[name];
+            if (child && typeof child === 'object') {
+                options.elementType = child.constructor;
+                if (child.constructor.fromObject) {
+                    options.elementFactory = child.constructor.fromObject;  
+                } 
+            }
+            let attr_props = {};
+            if (obj.constructor && obj.constructor.getAttrProps) {
+                let attr_props = obj.constructor.getAttrProps(name);
+                if (attr_props) Object.assign(options, attr_props);
+            } 
+        }
+        return options;
+    }
+
+    getArrayElementOptions(obj) {
+        let options = this.defaults ? new Options(this.defaults) : Object.assign(new Options(this), { defaults: this });
+        options.elementType = this.arrayElementType;
+        options.elementFactory = this.arrayElementFactory;
+        return options;     
+    }
+
+    static addDefaults(props) {
+        if (props instanceof Options) return props;
+        return new Options(props);
+    }
+}
+
+class ElementFactory {
+    static createElement(props, options) {
+        logger.trace('ElementFactory.createElement', props, options);
+        if (options.elementFactory) return options.elementFactory(props);
+        if (options.elementType) {
+            let e = new options.elementType();
+            Object.assign(e, props);
+            return e;
+        } else {
+            return props;
+        }
+    }
+ }
 
 // Object operations
 
@@ -44,8 +120,9 @@ const Del = Object.assign(new Op(), {
 
 class Rpl extends Op {
     get name() { return Rpl.name; }
-    patch(object, element_factory = defaultElementFactory(object)) {
-        return element_factory(this.data);
+    patch(object, options) {
+        options = Options.addDefaults(options);
+        return ElementFactory.createElement(this.data, options);
     }
     constructor(data) { super(); this.data = data; }
     toObject() { return this.data; }
@@ -57,27 +134,21 @@ class Ins extends Rpl {
 class Mrg extends Op {
 
     get name() { return Mrg.name; }
-    static _getElementFactory(object, name) {   
-        //console.log('gef', object, name);
-        if (object.constructor.getPropertyType) {
-            let type =  object.constructor.getPropertyType(name);
-            if (type) return type.fromObject;
-        }
-        return undefined;
-    }
-
-    patch(object, element_factory = defaultElementFactory(object)) {
-        let props = Object.assign({}, object);
+ 
+    patch(object, options) {
+        options = Options.addDefaults(options);
+        let props = options.mergeInPlace ? object : Object.assign({}, object);
         for (let name of Object.getOwnPropertyNames(this.data)) {
-            let prop = this.data[name].patch(props[name], Mrg._getElementFactory(object, name));
+            let prop = this.data[name].patch(props[name], options.getChildOptions(object, name));
             if (prop === undefined)
                 delete props[name];
             else 
                 props[name] = prop; 
         }
 
-        return element_factory(props);
+        return ElementFactory.createElement(props, options);
     }
+
     constructor(data) { super(); this.data = data; }
     toObject() { return { op: this.name, data: _map(this.data, prop => prop.toObject() ) } }
 }
@@ -96,30 +167,28 @@ class Arr extends Op {
 
     get name() { return Arr.name; }
 
-    static compareUid(a,b) {
-        if (a === b) return 0;
-        if (a.uid < b.uid) return -1;
-        if (a.uid > b.uid) return 1;
-        return 0;
-    }
+    patch(array, options) {
+        options = Options.addDefaults(options);
+        let result = ElementFactory.createElement([], options);
 
-    patch(array, element_factory = defaultElementFactory()) {
-
-        let result = [];
-        array = Array.from(array).sort(Arr.compareUid);
+        if (!options.sorted)
+            array = Array.from(array).sort((a,b) => _compare(a, b, options));
 
         let i = 0;
         let item = array[i++];
+        let element_options = options.getArrayElementOptions(array);
 
         for (let row of this.data) {
-            while (i <= array.length && item.uid < row.key) {
-                result.push(element_factory(item));
+            while (i <= array.length && _compareWith(row.key, item, options) > 0) {
+                result.push(item);
                 item = array[i++];
             }
+            logger.trace('item:', item, 'row:', row);
             if (row.op instanceof Ins)
-                result.push(row.op.data);
+                result.push(ElementFactory.createElement(row.op.data, element_options));
             else {
-                let patch_item = row.op.patch(item, element_factory);
+                logger.trace('patching', item, row.op);
+                let patch_item = row.op.patch(item, element_options);
                 if (patch_item != undefined) result.push(patch_item);
                 item = array[i++];
             }
@@ -154,60 +223,73 @@ class Arr extends Op {
  */
 class Patch {
 
-    static _compareArrays(a,b) {
+    static _compareArrays(a,b, options) {
 
         if (a.length === 0 && b.length === 0) return Nop;
         if (a.length === 0 || b.length === 0) return new Rpl(b);
 
         let patch = [];
-        a = Array.from(a).sort(Patch.compareUid);
-        b = Array.from(b).sort(Patch.compareUid);
+
+        if (!options.sorted) {
+            a = Array.from(a).sort((a,b) => _compare(a,b,options));
+            b = Array.from(b).sort((a,b) => _compare(a,b,options));
+        }
+
         let ai = 1, bi = 1;
         let ao = a[0], bo = b[0]
+        let element_options = options.getArrayElementOptions();
+
         do {
-            if (ao.uid < bo.uid) {
+             let comparison = _compare(ao,bo,options);
+            logger.trace("comparing items", ao, bo, comparison);
+           if (comparison < 0) {
+                logger.trace('skip');
                 ao = a[ai++]; 
-            } else if (ao.uid > bo.uid) {
-                patch.push(new Row(bo.uid, new Ins(bo)));
+            } else if (comparison > 0) {
+                logger.trace('insert');
+                patch.push(new Row(bo[options.key], new Ins(bo)));
                 bo = b[bi++];
             } else {
-                if (ao !== bo) patch.push(new Row(ao.uid, Patch.compare(ao, bo)));
+                if (ao !== bo) patch.push(new Row(ao[options.key], Patch.compare(ao, bo, element_options)));
+                else logger.trace('skip');
                 ao = a[ai++]; 
                 bo = b[bi++];
             }
         } while (ai <= a.length && bi <= b.length);
                 
         while (ai <= a.length) {
-            patch.push(new Row(ao.uid, Del));
+            patch.push(new Row(ao[options.key], Del));
             ao=a[ai++]; 
         }
 
         while (bi <= b.length) {
-            patch.push(new Row(bo.uid, new Rpl(bo))); 
+            patch.push(new Row(bo[options.key], new Rpl(bo))); 
             bo=b[bi++]; 
         }
         
         return new Arr(patch);
     }
 
-    static _compareObjects(a,b) {
+    static _compareObjects(a,b,options) {
 
         let data = {};
         let akeys = Object.getOwnPropertyNames(a);
         let bkeys = Object.getOwnPropertyNames(b);
         
         for (let akey of akeys) {
-            if (a[akey] !== b[akey]) data[akey] = Patch.compare(a[akey], b[akey]);
+            if (a[akey] !== b[akey]) data[akey] = Patch.compare(a[akey], b[akey], options.getChildOptions(a,akey));
         } 
         for (let bkey of bkeys) 
-            if (a[bkey] === undefined) data[bkey] = Patch.compare(undefined, b[bkey]);
+            if (a[bkey] === undefined) data[bkey] = Patch.compare(undefined, b[bkey], options.getChildOptions(b,bkey));
         
         return new Mrg(data);    
     }
 
 
-    static compare(a,b) {
+    static compare(a,b,options) {
+        options = Options.addDefaults(options);
 
+        logger.trace('comparing', a, b);
         if (a === b)
             return Nop;
         if (b === undefined) 
@@ -218,9 +300,9 @@ class Patch {
         if (typeof a === 'object' && typeof b === 'object') {
             if (a.constructor === b.constructor) {
                 if (a instanceof Array) {
-                    return Patch._compareArrays(a,b);
+                    return Patch._compareArrays(a,b,options);
                 } else {
-                    return Patch._compareObjects(a,b);
+                    return Patch._compareObjects(a,b,options);
                 }
             } else {
                 return new Rpl(b);
