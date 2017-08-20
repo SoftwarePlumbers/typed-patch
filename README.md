@@ -2,8 +2,6 @@
 
 Type-aware patch utility.
 
-*holds head in hands* yes, yet another node object diff/patch utility.
-
 ## Tl;DR
 
 ```javascript

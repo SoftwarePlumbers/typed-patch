@@ -1,3 +1,7 @@
+/** @module typed-patch
+ *
+ */
+
 'use strict';
 
 const logger = { 
@@ -127,8 +131,8 @@ class Options {
             let child = obj[name];
             if (child && typeof child === 'object') {
                 options.elementType = child.constructor;
-                if (child.constructor.fromObject) {
-                    options.elementFactory = child.constructor.fromObject;  
+                if (child.constructor.fromJSON) {
+                    options.elementFactory = child.constructor.fromJSON;  
                 } 
             }
             let attr_props = {};
@@ -187,21 +191,46 @@ class ElementFactory {
 
 /** Base class for patch operations.
  *
+ * Patch operations should support the following operations:
+ *
+ * * patch(to_patch, options) recursively apply patch to change to_patch
+ * * toJSON() convert a patch into JSON for over-the-wire operations
+ * * toString() convert a patch into a succincy human-readable string format
+ *
+ * Patch operations should also have a read-only property 'name' which represents the name of the operation.
  */
 class Op {
+
+    /** Convert to JSON format
+     *
+     * JSON format looks like `{ op: <operation name> data: <data> }`. As a special case, `Rpl` operations
+     * (which simply replace existing data) are elided in JSON format (so the above example would just read
+     * `<data>`).
+     *
+     * The patch operation as an untyped JSON object tree.
+     */
     toJSON() {
         return { op: this.name };
     } 
 
+    /** Convert to String format
+     *
+     * String format looks like `<operation name> { <data> }`
+     */
     toString() {
         return this.name;
+    }
+
+    /** Defauly implementation of name property returns the name of the constructor 
+     */
+    get name() { 
+        return this.constructor.name; 
     }
 }
 
 /** Global Nop object - represents an empty patch that does nothing 
  */
-const Nop = Object.assign(new Op(), {
-    name: "Nop",
+const NOP = new class Nop extends Op {
 
     /** patch operation
      * passes through object unchanged
@@ -210,25 +239,23 @@ const Nop = Object.assign(new Op(), {
     patch(object) {
         return object;
     }
-});
+};
 
 /** Global Del object - represents a patch that deletes a property
  */
-const Del = Object.assign(new Op(), {
-    name: "Del",
-
+const DEL = new class Del extends Op {
     /** patch operation
      * @returns undefined
      */
     patch(object) {
         return undefined;
     }
-});
+};
 
-/** Replace operation - represents a patch that replaces a property
+/** Replace operation - represents a patch that replaces a property or row in an array
  */
 class Rpl extends Op {
-    get name() { return Rpl.name; }
+
 
     /** Patch operation - creates a new object from the givien properties.
      *
@@ -239,15 +266,40 @@ class Rpl extends Op {
         options = Options.addDefaults(options);
         return ElementFactory.createElement(this.data, options);
     }
+
+    /** Constructor
+     *
+     * @param data Data to replace property value
+     */
     constructor(data) { super(); this.data = data; }
+
+    /** Convert to JSON representation.
+     *
+     * The JSON representation of a Replace operation is the JSON representation of the data value passed in the constructor.
+     */
     toJSON() { return this.data; }
+
+    /** Convert to String representation
+     *
+     * The String representation of a Replace operation looks like `Rpl <data>` 
+     */
     toString() { return `${this.name} ${_print(this.data)}`; }
 }
 
 /** Insert operation - represents a patch that inserts an element into an array
  */
 class Ins extends Rpl {
-    get name() { return Ins.name; }
+
+    /** Convert to JSON representation.
+     *
+     * The JSON representation of an Insert operation looks like `{ op: 'Ins' data: '<data>' }`
+     */
+    toJSON() { return { op: this.name, data: this.data}; }
+
+   /** Convert to String representation
+     *
+     * The String representation of a Replace operation looks like `inserts` <data>` 
+     */
     toString() { return `${this.name} ${_print(this.data)}`; }    
 }
 
@@ -255,8 +307,14 @@ class Ins extends Rpl {
  */
 class Mrg extends Op {
 
-    get name() { return Mrg.name; }
- 
+    /** Recursively merge an object with the patch data.
+     *
+     * Properties of the data object passed into the constructor will be merged with the properties
+     * of the object supplied as an argument to this function.
+     *
+     * @param object Object to be merged
+     * @param options Options controlling how merge will occur. See {@link  DEFAULT_OPTIONS}.
+     */
     patch(object, options) {
         options = Options.addDefaults(options);
         let props = options.mergeInPlace ? object : Object.assign({}, object);
@@ -271,13 +329,24 @@ class Mrg extends Op {
         return ElementFactory.createElement(props, options);
     }
 
+    /** Constructor
+     *
+     * @param data to merge with target object. Each property of `data` will generally be a patch operation which
+     * affects the named property of the object targeted by patch().
+     */
     constructor(data) { super(); this.data = data; }
+
+
     toJSON() { return { op: this.name, data: _map(this.data, prop => prop.toJSON() ) } }
     toString() { return `${this.name} { ${_reduce(_map(this.data, prop => prop.toString()), "", _appendString)} }` }
 }
 
+/** Represents an patch operation on an array row.
+ *
+ */
 class Row {
     constructor(key, operation) {
+        console.assert(key !== undefined, "Key cannot be undefined");
         this.key = key; this.op = operation;
     }
 
@@ -290,10 +359,17 @@ class Row {
     }
 }
 
+/** Merge operation for arrays.
+ *
+ *
+ */
 class Arr extends Op {
 
-    get name() { return Arr.name; }
-
+    /** Merge array data with data from the patch.
+    *
+    * @param array {Array} to merge with patch data.
+    * @param options options affecting how merge is performed. See {@link DEFAULT_OPTIONS}
+    */
     patch(array, options) {
         options = Options.addDefaults(options);
         let result = ElementFactory.createElement([], options);
@@ -325,16 +401,28 @@ class Arr extends Op {
         return result;
     }
 
+    /** Create an array merge operation 
+     *
+     * @param operations {Array} An array of row merge operations, must be sorted by a suitable key
+     */
     constructor(operations) {
         super();
         this.data = operations;
     }
 
+    /** Convert to JSON representation.
+     *
+     * The JSON representation of an Arr operation looks like `{ op: 'Arr' data: [ <rows> ] }`
+     */
     toJSON() {
         return { op: this.name, data: this.data.map( row => row.toJSON() ) };
     }
 
-    toString() {
+    /** Convert to String representation.
+    *
+    * The String representation of an Arr operation looks like `Arr [ <rows> ]`
+    */
+   toString() {
         return `Arr [ ${this.data.map(item => item.toString()).join(',')} ]`;
     }
 }
@@ -345,18 +433,20 @@ class Arr extends Op {
  * Class that should allow us to compare two objects, compute a difference, send the difference over the wire, and apply a patch at the far end
  * to sync a remote object with the changes.
  *
- * At the moment, for it to work with arrays, each member of the array must have an explicit 'uid' on which it can be sorted (arrays must have
- * a stable sort order to be logically patched...).
+ * At the moment, for it to work with arrays, each member of the array must have a key property which uniquely identifies it
+ * and on which it can be sorted (arrays must have a stable sort order to be logically patched...).
  *
- * For 'patch' to work properly, the patched object (and child objects) should have a static 'fromObject' method somewhere in its inheritance tree.
- * You may also implement a static 'getPropertType(name)' object, which may return a constructor for values of the named property. For array 
- * properties, the named constructor will be used for array elements.
+ * For 'patch' to work properly, the patched object (and child objects) should have a static 'fromJSON' method somewhere in its inheritance tree.
+ * You may also implement a static 'getAttrProps(name)' object, which may return a variety of options that are applied to
+ * child properties with the given name (see {@link DEFAULT_OPTIONS}).
+ *
+ * Won't work with cyclic data structures.
  */
 class Patch {
 
     static _compareArrays(a,b, options) {
 
-        if (a.length === 0 && b.length === 0) return Nop;
+        if (a.length === 0 && b.length === 0) return NOP;
         if (a.length === 0 || b.length === 0) return new Rpl(b);
 
         let patch = [];
@@ -389,7 +479,7 @@ class Patch {
         } while (ai <= a.length && bi <= b.length);
                 
         while (ai <= a.length) {
-            patch.push(new Row(ao[options.key], Del));
+            patch.push(new Row(ao[options.key], DEL));
             ao=a[ai++]; 
         }
 
@@ -417,14 +507,20 @@ class Patch {
     }
 
 
+    /** Compare two object to produce a patch object.
+     *
+     * @param a First object for comparison
+     * @param b Second object for comparison
+     * @param options (optional) options to control comparison operation (see {@link DEFAULT_OPTIONS})
+     */
     static compare(a,b,options) {
         options = Options.addDefaults(options);
 
         logger.trace('comparing', a, b);
         if (a === b)
-            return Nop;
+            return NOP;
         if (b === undefined) 
-            return Del;
+            return DEL;
         if (a === undefined) 
             return new Rpl(b);
         
@@ -444,34 +540,45 @@ class Patch {
     }
 
 
-    static fromObject(object) {
+    /** Convert over-the-wire JSON format back into typed patch object
+     */
+    static fromJSON(object) {
         if (object instanceof Op) return object; // If already patch, return it
-        if (object === undefined) return Nop;
+        if (object === undefined) return NOP;
         if (object.op) {
             if (object.op === Rpl.name)
                 return new Rpl(object.data);
-            else if (object.op === Nop.name)
-                return Nop;
-            else if (object.op === Del.name)
-                return Del;
+            if (object.op === Ins.name)
+                return new Ins(object.data);
+            else if (object.op === NOP.name)
+                return NOP;
+            else if (object.op === DEL.name)
+                return DEL;
             else if (object.op === Mrg.name) 
-                return new Mrg(_map(object.data, Patch.fromObject));
+                return new Mrg(_map(object.data, Patch.fromJSON));
             else if (object.op === Arr.name) 
-                return new Arr(object.data.map(row => new Row(row.key, Patch.fromObject(row.op))));
-            else throw new Error('unknown diff.op', object.op);
+                return new Arr(object.data.map(row => new Row(row.key, Patch.fromJSON(row.op))));
+            else throw new Error('unknown diff.op ' + object.op);
         } else {
             return new Rpl(object);   
         }    
     }
 
 
-    static get Del() { return Del.name; }
+    /** Name of Del operationn */
+    static get Del() { return DEL.name; }
+    /** Name of Rpl operationn */
     static get Rpl() { return Rpl.name; }
+    /** Name of Ins operationn */
     static get Ins() { return Ins.name; }
-    static get Nop() { return Nop.name; }
+    /** Name of Nop operationn */
+    static get Nop() { return NOP.name; }
+    /** Name of Mrg operation */
     static get Mrg() { return Mrg.name; }
+    /** Name of Arr operation */
     static get Arr() { return Arr.name; }
 }
 
+/** The Patch class defines the public API of this module. */
 module.exports = Patch;
 

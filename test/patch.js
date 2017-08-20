@@ -2,14 +2,14 @@ const Patch = require('../patch');
 const chai = require('chai');
 const expect = chai.expect;
 
-let flour = { uid: 1, text: 'flour' };
-let eggs = { uid: 2, text: 'eggs' };
-let butter = { uid: 3, text: 'butter' };
-let milk = { uid: 3, text: 'milk' };
+let flour = { key: 1, text: 'flour' };
+let eggs = { key: 2, text: 'eggs' };
+let butter = { key: 3, text: 'butter' };
+let milk = { key: 3, text: 'milk' };
 let breakfast1 = { drink: 'coffee', meal: 'pancakes', ingredients: [ eggs, flour, milk ] };
 let breakfast2 = { drink: 'oj', meal: 'pancakes', ingredients: [ eggs, flour, milk, butter ] }; 
 
-class Article { constructor(props) { Object.assign(this, props); } static fromObject(obj) { return new Article(obj); }}
+class Article { constructor(props) { Object.assign(this, props); } static fromJSON(obj) { return new Article(obj); }}
 
 let article1 = new Article({ key: 1, markdown: "yes", isPublic: false });
 let article2 = new Article({ key: 2, markdown: "unflappable", isPublic: true });
@@ -21,6 +21,15 @@ const logger = {
 };
 
 describe("Diff", () => {
+
+        it ("has names for operations", () => {
+            expect(Patch.Del).to.equal("Del");
+            expect(Patch.Ins).to.equal("Ins");
+            expect(Patch.Nop).to.equal("Nop");
+            expect(Patch.Rpl).to.equal("Rpl");
+            expect(Patch.Mrg).to.equal("Mrg");
+            expect(Patch.Arr).to.equal("Arr");
+        });
 
         it("can do simple diff operations", () => {
 
@@ -109,7 +118,7 @@ describe("Diff", () => {
             logger.debug(diff);
             let json = JSON.stringify(diff.toJSON());
             logger.debug(json);
-            let diff2 = Patch.fromObject(JSON.parse(json));
+            let diff2 = Patch.fromJSON(JSON.parse(json));
             logger.debug(diff2);
             let json2 = JSON.stringify(diff2.toJSON());
             logger.debug(json2);
@@ -122,7 +131,7 @@ describe("Diff", () => {
 
             let diff = Patch.compare(array1, array2);
             logger.debug(diff.toString());
-            let array3=diff.patch(array1, { arrayElementFactory: Article.fromObject } );
+            let array3=diff.patch(array1, { arrayElementFactory: Article.fromJSON } );
             logger.debug(array3);
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
@@ -134,7 +143,7 @@ describe("Diff", () => {
 
             let diff = Patch.compare(array1, array2);
             logger.debug(diff.toString());
-            let array3=diff.patch(array1, { arrayElementFactory: Article.fromObject });
+            let array3=diff.patch(array1, { arrayElementFactory: Article.fromJSON });
             logger.debug(array3);
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
@@ -148,10 +157,10 @@ describe("Diff", () => {
             let diff1 = Patch.compare(array1, array2);
             let json1 = JSON.stringify(diff1.toJSON());
             let obj = JSON.parse(json1);
-            let diff2 = Patch.fromObject(obj);
+            let diff2 = Patch.fromJSON(obj);
             let json2 = JSON.stringify(diff2.toJSON());
             expect(json1).to.equal(json2);
-            let array3=diff2.patch(array1, { arrayElementFactory: Article.fromObject });
+            let array3=diff2.patch(array1, { arrayElementFactory: Article.fromJSON });
             logger.debug(JSON.stringify(array3));
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
