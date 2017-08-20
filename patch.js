@@ -5,6 +5,10 @@ const logger = {
     trace() {}
 };
 
+/** Utility function that applies a function to transform all the properties of an object 
+ * @param object for which we will transform properties
+ * @param fn {Function} function to apply property transformation
+ */
 function _map(object, fn) {
     let result = {};
     for (let key of Object.getOwnPropertyNames(object))
@@ -12,6 +16,33 @@ function _map(object, fn) {
     return result; 
 }
 
+/** Utility function that performs reduce operation on properties of an object
+ *
+ * @param object to reduce
+ * @param res initial value for result 
+ * @param fn reduction function
+ * @returns the result of applying res = fn(res, <name>, <value>) over all properties of the object.
+ */
+function _reduce(object, res, fn) {
+    for (let key of Object.getOwnPropertyNames(object))
+        res = fn(res, key, object[key] );
+    return res;
+}
+
+function _appendString(res, name, value) {
+    if (res) res += ','; else res = "";
+    res+=`${name}: $value`;
+}
+
+/** Utility function to compare key with object (that has a key property)
+ *
+ * options.key holds the name of the key property
+ * options.keyComparator may hold an optional comparator for values of key
+ *
+ * @param akey key to compare with object
+ * @param b object with a key value
+ * 
+ */
 function _compareWith(akey, b, options) {
     let bkey = b[options.key];
     if (options.keyComparator) return options.keyComparator(akey,bkey);
@@ -20,14 +51,33 @@ function _compareWith(akey, b, options) {
     return 0;
 }
 
+/** Utility function to objects that have a key properties
+ *
+ * options.key holds the name of the key property
+ * options.keyComparator may hold an optional comparator for values of key
+ *
+ * @param a object with a key value
+ * @param b object with a key value
+ * 
+ */
 function _compare(a,b, options) {
     if (a === b) return 0;
     return _compareWith(a[options.key],b, options)
 }
 
-
-
-
+/** Default options for diff 
+ *
+ *   | Option                   | Default | Description
+     |--------------------------|---------|-------------------------- 
+ *   | `elementFactory`         | `false` | Factory used to create new object instances 
+ *   | `mergeInPlace`           | `false` | Patch will copy properties into existing object rather than creating a new one 
+ *   | `key`                    | `'key'` | Name of unique key object that distinguishes items in array
+ *   | `keyComparator`          | `false` | Comparator function (a,b) => (-1/0/1) that orders key values
+ *   | `sorted`                 | `false` | Assume array already sorted by key
+ *   | `arrayElement`           | `false` | Type of element used as a last resort to create new object instances
+ *   | `arrayElementType`       | `false` | Type of element used to create new elements in an array
+ *   | `arrayElementFactory`    | `false` | Factory used to create new elements in an array 
+ */
 
 const DEFAULT_OPTIONS = {
     elementFactory : false,
@@ -40,12 +90,30 @@ const DEFAULT_OPTIONS = {
     arrayElementFactory: false
 }
 
+
+/** Holds options which change the way compare and patch operations are run.
+ *
+ * An options object can be passed in to a compare or patch opertion in order to control
+ * how the operation is performed. However, it is more common to simply pass in a few paramters
+ * as a simple object which will then be automatically merged with the default options to create
+ * a new Options object.
+ *
+ */
 class Options {
 
+    /** Build a new options object
+     *
+     * @param props Properties for diff/patch operations. Will be merged with default options.
+     */
     constructor(props) {
         props = Object.assign(this, DEFAULT_OPTIONS, props);
     }
 
+    /** Get a new set of options for diff/patch operations on the given property.
+     *
+     * @param object being patched or diffed.
+     * @param name name of propery in object
+     */
     getChildOptions(obj,name) {
         let options = this.defaults ? new Options(this.defaults) : Object.assign(new Options(this), { defaults: this });
         if (obj) {
@@ -64,21 +132,39 @@ class Options {
         }
         return options;
     }
-
-    getArrayElementOptions(obj) {
+    
+    /** Get a new set of options for diff/patch operations on an array element.
+     *
+     */
+    getArrayElementOptions() {
         let options = this.defaults ? new Options(this.defaults) : Object.assign(new Options(this), { defaults: this });
         options.elementType = this.arrayElementType;
         options.elementFactory = this.arrayElementFactory;
         return options;     
     }
 
+    /** Create a new Options object, merging the supplied properties with the defaults.
+     * @param properties to merge with defaults.
+     */
     static addDefaults(props) {
         if (props instanceof Options) return props;
         return new Options(props);
     }
 }
 
+/** Utility for creating patched data elements, controlled by options object.
+ */
 class ElementFactory {
+
+    /** Create an merged object of the correct type.
+     *
+     * If options.elementFactory exists, use that (i.e. call options.elementFactory(props))
+     * If options.elementType exists, use that as a no-arg constructor, then assign props 
+     * Otherwise, return props.
+     * 
+     * @param props Merged properties
+     * @param options {Options} controls how new merged object is created from merged properties
+     */
     static createElement(props, options) {
         logger.trace('ElementFactory.createElement', props, options);
         if (options.elementFactory) return options.elementFactory(props);
@@ -92,45 +178,72 @@ class ElementFactory {
     }
  }
 
-// Object operations
-
+/** Base class for patch operations.
+ *
+ */
 class Op {
-    toObject() {
+    toJSON() {
         return { op: this.name };
     } 
 
     toString() {
-        return JSON.stringify(this.toObject());
+        return this.name;
     }
 }
 
+/** Global Nop object - represents an empty patch that does nothing 
+ */
 const Nop = Object.assign(new Op(), {
     name: "Nop",
+
+    /** patch operation
+     * passes through object unchanged
+     * @param object to patch
+     */
     patch(object) {
         return object;
     }
 });
 
+/** Global Del object - represents a patch that deletes a property
+ */
 const Del = Object.assign(new Op(), {
     name: "Del",
+
+    /** patch operation
+     * @returns undefined
+     */
     patch(object) {
         return undefined;
     }
 });
 
+/** Replace operation - represents a patch that replaces a property
+ */
 class Rpl extends Op {
     get name() { return Rpl.name; }
+
+    /** Patch operation - creates a new object from the givien properties.
+     *
+     * @param properties of object to create
+     * @param options controls how object is created {@link DEFAULT_OPTIONS}
+     */
     patch(object, options) {
         options = Options.addDefaults(options);
         return ElementFactory.createElement(this.data, options);
     }
     constructor(data) { super(); this.data = data; }
-    toObject() { return this.data; }
+    toJSON() { return this.data; }
+    toString() { return this.name + " " + JSON.stringify(this.data); }
 }
 
+/** Insert operation - represents a patch that inserts an element into an array
+ */
 class Ins extends Rpl {
 }
 
+/** Merge operation for objects - represents a patch that merges two objects to create a third.
+ */
 class Mrg extends Op {
 
     get name() { return Mrg.name; }
@@ -150,7 +263,8 @@ class Mrg extends Op {
     }
 
     constructor(data) { super(); this.data = data; }
-    toObject() { return { op: this.name, data: _map(this.data, prop => prop.toObject() ) } }
+    toJSON() { return { op: this.name, data: _map(this.data, prop => prop.toJSON() ) } }
+    toString() { return `${this.name} { ${_reduce("",_map(this.data, prop => toString()), _appendString)} }` }
 }
 
 class Row {
@@ -158,8 +272,12 @@ class Row {
         this.key = key; this.op = operation;
     }
 
-    toObject() {
-        return { key: this.key, op: this.op.toObject() };
+    toJSON() {
+        return { key: this.key, op: this.op.toJSON() };
+    }
+
+    toString() {
+        return `{ ${this.key}, ${this.op} }`;
     }
 }
 
@@ -203,8 +321,12 @@ class Arr extends Op {
         this.data = operations;
     }
 
-    toObject() {
-        return { op: this.name, data: this.data.map( row => row.toObject() ) };
+    toJSON() {
+        return { op: this.name, data: this.data.map( row => row.toJSON() ) };
+    }
+
+    toString() {
+        return `[ ${this.data.join(',')}]`;
     }
 }
     

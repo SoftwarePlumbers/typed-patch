@@ -79,17 +79,17 @@ describe("Diff", () => {
         it("can diff more complex objects", () => {
             let diff = Patch.compare(breakfast1, breakfast2);
             logger.debug(diff);
-            logger.debug(diff.toObject());
+            logger.debug(diff.toJSON());
         });
 
         it("can be built from JSON", () => {
             let diff = Patch.compare(breakfast1, breakfast2);
             logger.debug(diff);
-            let json = JSON.stringify(diff.toObject());
+            let json = JSON.stringify(diff.toJSON());
             logger.debug(json);
             let diff2 = Patch.fromObject(JSON.parse(json));
             logger.debug(diff2);
-            let json2 = JSON.stringify(diff2.toObject());
+            let json2 = JSON.stringify(diff2.toJSON());
             logger.debug(json2);
             expect(json2).to.equal(json);
         });
@@ -124,10 +124,10 @@ describe("Diff", () => {
             let array2 = [ article1, Object.assign({}, article2, { markdown: "botulism"}), article3 ];
 
             let diff1 = Patch.compare(array1, array2);
-            let json1 = JSON.stringify(diff1.toObject());
+            let json1 = JSON.stringify(diff1.toJSON());
             let obj = JSON.parse(json1);
             let diff2 = Patch.fromObject(obj);
-            let json2 = JSON.stringify(diff2.toObject());
+            let json2 = JSON.stringify(diff2.toJSON());
             expect(json1).to.equal(json2);
             let array3=diff2.patch(array1, { arrayElementFactory: Article.fromObject });
             logger.debug(JSON.stringify(array3));
