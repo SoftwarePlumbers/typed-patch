@@ -37,6 +37,13 @@ describe("Diff", () => {
             expect(c.b).to.equal(4);
         });
 
+        it("Has a vaguely sane string representation for basic diff ops", () => {
+            let a = {a : 1, b: 2, c: 3 };
+            let b = {a : 1, b: 4, c: 3 };
+            let patch = Patch.compare(a,b);
+            expect(patch.toString()).to.equal("Mrg { b: Rpl 4 }");            
+        });
+
         it("can diff arrays", () => {
 
             let a = [ { key: 1, text: "numpty" } ];
@@ -44,10 +51,10 @@ describe("Diff", () => {
             b.push({ key: 4, text: "tumpty" });
 
             let patch = Patch.compare(a,b);
-            logger.debug(patch);
+            logger.debug(patch.toString());
             expect(patch.name).to.equal(Patch.Arr);
             expect(patch.data.length).to.equal(1);
-            expect(patch.data[0].op.name).to.equal(Patch.Rpl);
+            expect(patch.data[0].op.name).to.equal(Patch.Ins); 
             expect(patch.data[0].key).to.equal(4);
 
             patch = Patch.compare(b,a);
@@ -56,6 +63,21 @@ describe("Diff", () => {
             expect(patch.data.length).to.equal(1);
             expect(patch.data[0].op.name).to.equal(Patch.Del);
             expect(patch.data[0].key).to.equal(4);
+
+        });
+
+        it("Has a vaguely sane string representation for array diffs", () => {
+
+            let a = [ { key: 1, text: "numpty" } ];
+            let b = Array.from(a);
+            b.push({ key: 4, text: "tumpty" });
+
+            let patch = Patch.compare(a,b);
+            logger.debug(patch.toString());
+            expect(patch.toString()).to.equal("Arr [ Row { 4, Ins { key: 4, text: tumpty } } ]");
+
+            patch = Patch.compare(b,a);
+            logger.debug(patch.toString());
         });
 
         it("can patch arrays", () => {
@@ -134,8 +156,7 @@ describe("Diff", () => {
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
             expect(array3[1].markdown).to.equal("botulism");
-        });
-   
+        });   
     }
 );
 

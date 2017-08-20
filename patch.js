@@ -30,8 +30,15 @@ function _reduce(object, res, fn) {
 }
 
 function _appendString(res, name, value) {
-    if (res) res += ','; else res = "";
-    res+=`${name}: $value`;
+    let delimeter = res ? ", " : "";
+    return `${res}${delimeter}${name}: ${value}`;
+}
+
+function _print(object) {
+    if (typeof object === 'object') {
+        return '{ ' + _reduce(_map(object, _print), "", _appendString) + ' }'; 
+    }
+    return object;
 }
 
 /** Utility function to compare key with object (that has a key property)
@@ -234,12 +241,14 @@ class Rpl extends Op {
     }
     constructor(data) { super(); this.data = data; }
     toJSON() { return this.data; }
-    toString() { return this.name + " " + JSON.stringify(this.data); }
+    toString() { return `${this.name} ${_print(this.data)}`; }
 }
 
 /** Insert operation - represents a patch that inserts an element into an array
  */
 class Ins extends Rpl {
+    get name() { return Ins.name; }
+    toString() { return `${this.name} ${_print(this.data)}`; }    
 }
 
 /** Merge operation for objects - represents a patch that merges two objects to create a third.
@@ -264,7 +273,7 @@ class Mrg extends Op {
 
     constructor(data) { super(); this.data = data; }
     toJSON() { return { op: this.name, data: _map(this.data, prop => prop.toJSON() ) } }
-    toString() { return `${this.name} { ${_reduce("",_map(this.data, prop => toString()), _appendString)} }` }
+    toString() { return `${this.name} { ${_reduce(_map(this.data, prop => prop.toString()), "", _appendString)} }` }
 }
 
 class Row {
@@ -277,7 +286,7 @@ class Row {
     }
 
     toString() {
-        return `{ ${this.key}, ${this.op} }`;
+        return `Row { ${this.key}, ${this.op.toString()} }`;
     }
 }
 
@@ -326,7 +335,7 @@ class Arr extends Op {
     }
 
     toString() {
-        return `[ ${this.data.join(',')}]`;
+        return `Arr [ ${this.data.map(item => item.toString()).join(',')} ]`;
     }
 }
     
@@ -373,7 +382,7 @@ class Patch {
                 bo = b[bi++];
             } else {
                 if (ao !== bo) patch.push(new Row(ao[options.key], Patch.compare(ao, bo, element_options)));
-                else logger.trace('skip');
+                else logger.trace('skip2');
                 ao = a[ai++]; 
                 bo = b[bi++];
             }
@@ -385,7 +394,7 @@ class Patch {
         }
 
         while (bi <= b.length) {
-            patch.push(new Row(bo[options.key], new Rpl(bo))); 
+            patch.push(new Row(bo[options.key], new Ins(bo))); 
             bo=b[bi++]; 
         }
         
@@ -458,6 +467,7 @@ class Patch {
 
     static get Del() { return Del.name; }
     static get Rpl() { return Rpl.name; }
+    static get Ins() { return Ins.name; }
     static get Nop() { return Nop.name; }
     static get Mrg() { return Mrg.name; }
     static get Arr() { return Arr.name; }
