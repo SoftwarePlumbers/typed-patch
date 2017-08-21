@@ -1,6 +1,8 @@
-# typed-patch
 
-Type-aware patch utility.
+
+# ![Software Plumbers](http://docs.softwareplumbers.com/common/img/SquareIdent-160.png) Typed Patch
+
+The type-aware object patch utility.
 
 ## Tl;DR
 
@@ -12,9 +14,11 @@ let object3 = patch.apply(object2)
 
 and object3 should equal object1.
 
-If any of the properties and sub-properties of object1 are themselves classes, and have a static method `fromObject` somewhere in their prototype chain, then this `fromObject` method will be applied to the result of merging properties betweem the appropriate sub-trees in order to create an object of the correct class.
+If any of the properties and sub-properties of object1 are themselves classes, and have a static method `fromJSON` somewhere in their prototype chain, then this `fromJSON` method will be applied to the result of merging properties betweem the appropriate sub-trees in order to create an object of the correct class.
 
 The utility has more subtle and feature-rich ways of specifying types, and doing things like deciding the type of array elements and specifying how arrays are merged. If interested, read on.
+
+For the latest API documentation see [The Software Plumbers Site](http://docs.softwareplumbers.com/typed-patch/master)
 
 ## Project Status
 
@@ -34,7 +38,7 @@ Encoding types in the diff format is an option which we have rejected due to the
 
 This problem is closely related to the issue of re-creating object trees from JSON delivered across the wire or from document stores like Mongo. This may be why there are so many diff utilities - they are usually bound to a particular way of doing things.
 
-By default, typed-patch therefore derives type information entirely from the object to be patched. This can be achieved most simply by putting a static method `fromObject` in the base class of any typed property. This method is used to covert untyped properties into an instance of the required object class.
+By default, typed-patch therefore derives type information entirely from the object to be patched. This can be achieved most simply by putting a static method `fromJSON` in the base class of any typed property. This method is used to covert untyped properties into an instance of the required object class.
 
 This works in many cases, but not when the patch contains properties that do not exist in the patched object. In this case, we need to implement a getAttrProps static method which takes a name argument and returns an object containing a factory method (`elementFactory`) or an object type `elementType` suitable for populating the property of that name.
 

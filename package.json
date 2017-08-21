@@ -1,6 +1,6 @@
 {
   "name": "typed-patch",
-  "version": "0.1.3",
+  "version": "0.1.4444",
   "description": "Type-aware object patch",
   "main": "index.js",
   "scripts": {
@@ -26,6 +26,7 @@
   "homepage": "https://github.com/softwareplumbers/typed-patch#readme",
   "devDependencies": {
     "chai": "^4.1.1",
+    "ink-docstrap": "^1.3.0",
     "jsdoc": "^3.5.4",
     "mocha": "^3.5.0"
   }

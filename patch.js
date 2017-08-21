@@ -1,6 +1,9 @@
-/** @module typed-patch
+/** @module patch
  *
  */
+ const utils = require('./utils');
+ const ops = require('./operations');
+ const Options = require('./options');
 
 'use strict';
 
@@ -8,425 +11,6 @@ const logger = {
     //trace(...args) { console.log(...args); } 
     trace() {}
 };
-
-/** Utility function that applies a function to transform all the properties of an object 
- * @param object for which we will transform properties
- * @param fn {Function} function to apply property transformation
- */
-function _map(object, fn) {
-    let result = {};
-    for (let key of Object.getOwnPropertyNames(object))
-        result[key] = fn(object[key]);
-    return result; 
-}
-
-/** Utility function that performs reduce operation on properties of an object
- *
- * @param object to reduce
- * @param res initial value for result 
- * @param fn reduction function
- * @returns the result of applying res = fn(res, <name>, <value>) over all properties of the object.
- */
-function _reduce(object, res, fn) {
-    for (let key of Object.getOwnPropertyNames(object))
-        res = fn(res, key, object[key] );
-    return res;
-}
-
-function _appendString(res, name, value) {
-    let delimeter = res ? ", " : "";
-    return `${res}${delimeter}${name}: ${value}`;
-}
-
-function _print(object) {
-    if (typeof object === 'object') {
-        return '{ ' + _reduce(_map(object, _print), "", _appendString) + ' }'; 
-    }
-    return object;
-}
-
-/** Utility function to compare key with object (that has a key property)
- *
- * options.key holds the name of the key property
- * options.keyComparator may hold an optional comparator for values of key
- *
- * @param akey key to compare with object
- * @param b object with a key value
- * 
- */
-function _compareWith(akey, b, options) {
-    let bkey = b[options.key];
-    if (options.keyComparator) return options.keyComparator(akey,bkey);
-    if (akey < bkey) return -1;
-    if (akey > bkey) return 1;
-    return 0;
-}
-
-/** Utility function to objects that have a key properties
- *
- * options.key holds the name of the key property
- * options.keyComparator may hold an optional comparator for values of key
- *
- * @param a object with a key value
- * @param b object with a key value
- * 
- */
-function _compare(a,b, options) {
-    if (a === b) return 0;
-    return _compareWith(a[options.key],b, options)
-}
-
-/** Default options for diff 
- *
- *   | Option                   | Default | Description
-     |--------------------------|---------|-------------------------- 
- *   | `elementFactory`         | `false` | Factory used to create new object instances 
- *   | `mergeInPlace`           | `false` | Patch will copy properties into existing object rather than creating a new one 
- *   | `key`                    | `'key'` | Name of unique key object that distinguishes items in array
- *   | `keyComparator`          | `false` | Comparator function (a,b) => (-1/0/1) that orders key values
- *   | `sorted`                 | `false` | Assume array already sorted by key
- *   | `arrayElement`           | `false` | Type of element used as a last resort to create new object instances
- *   | `arrayElementType`       | `false` | Type of element used to create new elements in an array
- *   | `arrayElementFactory`    | `false` | Factory used to create new elements in an array 
- */
-
-const DEFAULT_OPTIONS = {
-    elementFactory : false,
-    mergeInPlace : false,
-    key: 'key',
-    keyComparator: false,
-    sorted: false,
-    elementType: false,
-    arrayElementType: false,
-    arrayElementFactory: false
-}
-
-
-/** Holds options which change the way compare and patch operations are run.
- *
- * An options object can be passed in to a compare or patch opertion in order to control
- * how the operation is performed. However, it is more common to simply pass in a few paramters
- * as a simple object which will then be automatically merged with the default options to create
- * a new Options object.
- *
- */
-class Options {
-
-    /** Build a new options object
-     *
-     * @param props Properties for diff/patch operations. Will be merged with default options.
-     */
-    constructor(props) {
-        props = Object.assign(this, DEFAULT_OPTIONS, props);
-    }
-
-    /** Get a new set of options for diff/patch operations on the given property.
-     *
-     * @param object being patched or diffed.
-     * @param name name of propery in object
-     */
-    getChildOptions(obj,name) {
-        let options = this.defaults ? new Options(this.defaults) : Object.assign(new Options(this), { defaults: this });
-        if (obj) {
-            let child = obj[name];
-            if (child && typeof child === 'object') {
-                options.elementType = child.constructor;
-                if (child.constructor.fromJSON) {
-                    options.elementFactory = child.constructor.fromJSON;  
-                } 
-            }
-            let attr_props = {};
-            if (obj.constructor && obj.constructor.getAttrProps) {
-                let attr_props = obj.constructor.getAttrProps(name);
-                if (attr_props) Object.assign(options, attr_props);
-            } 
-        }
-        return options;
-    }
-    
-    /** Get a new set of options for diff/patch operations on an array element.
-     *
-     */
-    getArrayElementOptions() {
-        let options = this.defaults ? new Options(this.defaults) : Object.assign(new Options(this), { defaults: this });
-        options.elementType = this.arrayElementType;
-        options.elementFactory = this.arrayElementFactory;
-        return options;     
-    }
-
-    /** Create a new Options object, merging the supplied properties with the defaults.
-     * @param properties to merge with defaults.
-     */
-    static addDefaults(props) {
-        if (props instanceof Options) return props;
-        return new Options(props);
-    }
-}
-
-/** Utility for creating patched data elements, controlled by options object.
- */
-class ElementFactory {
-
-    /** Create an merged object of the correct type.
-     *
-     * If options.elementFactory exists, use that (i.e. call options.elementFactory(props))
-     * If options.elementType exists, use that as a no-arg constructor, then assign props 
-     * Otherwise, return props.
-     * 
-     * @param props Merged properties
-     * @param options {Options} controls how new merged object is created from merged properties
-     */
-    static createElement(props, options) {
-        logger.trace('ElementFactory.createElement', props, options);
-        if (options.elementFactory) return options.elementFactory(props);
-        if (options.elementType) {
-            let e = new options.elementType();
-            Object.assign(e, props);
-            return e;
-        } else {
-            return props;
-        }
-    }
- }
-
-/** Base class for patch operations.
- *
- * Patch operations should support the following operations:
- *
- * * patch(to_patch, options) recursively apply patch to change to_patch
- * * toJSON() convert a patch into JSON for over-the-wire operations
- * * toString() convert a patch into a succincy human-readable string format
- *
- * Patch operations should also have a read-only property 'name' which represents the name of the operation.
- */
-class Op {
-
-    /** Convert to JSON format
-     *
-     * JSON format looks like `{ op: <operation name> data: <data> }`. As a special case, `Rpl` operations
-     * (which simply replace existing data) are elided in JSON format (so the above example would just read
-     * `<data>`).
-     *
-     * The patch operation as an untyped JSON object tree.
-     */
-    toJSON() {
-        return { op: this.name };
-    } 
-
-    /** Convert to String format
-     *
-     * String format looks like `<operation name> { <data> }`
-     */
-    toString() {
-        return this.name;
-    }
-
-    /** Defauly implementation of name property returns the name of the constructor 
-     */
-    get name() { 
-        return this.constructor.name; 
-    }
-}
-
-/** Global Nop object - represents an empty patch that does nothing 
- */
-const NOP = new class Nop extends Op {
-
-    /** patch operation
-     * passes through object unchanged
-     * @param object to patch
-     */
-    patch(object) {
-        return object;
-    }
-};
-
-/** Global Del object - represents a patch that deletes a property
- */
-const DEL = new class Del extends Op {
-    /** patch operation
-     * @returns undefined
-     */
-    patch(object) {
-        return undefined;
-    }
-};
-
-/** Replace operation - represents a patch that replaces a property or row in an array
- */
-class Rpl extends Op {
-
-
-    /** Patch operation - creates a new object from the givien properties.
-     *
-     * @param properties of object to create
-     * @param options controls how object is created {@link DEFAULT_OPTIONS}
-     */
-    patch(object, options) {
-        options = Options.addDefaults(options);
-        return ElementFactory.createElement(this.data, options);
-    }
-
-    /** Constructor
-     *
-     * @param data Data to replace property value
-     */
-    constructor(data) { super(); this.data = data; }
-
-    /** Convert to JSON representation.
-     *
-     * The JSON representation of a Replace operation is the JSON representation of the data value passed in the constructor.
-     */
-    toJSON() { return this.data; }
-
-    /** Convert to String representation
-     *
-     * The String representation of a Replace operation looks like `Rpl <data>` 
-     */
-    toString() { return `${this.name} ${_print(this.data)}`; }
-}
-
-/** Insert operation - represents a patch that inserts an element into an array
- */
-class Ins extends Rpl {
-
-    /** Convert to JSON representation.
-     *
-     * The JSON representation of an Insert operation looks like `{ op: 'Ins' data: '<data>' }`
-     */
-    toJSON() { return { op: this.name, data: this.data}; }
-
-   /** Convert to String representation
-     *
-     * The String representation of a Replace operation looks like `inserts` <data>` 
-     */
-    toString() { return `${this.name} ${_print(this.data)}`; }    
-}
-
-/** Merge operation for objects - represents a patch that merges two objects to create a third.
- */
-class Mrg extends Op {
-
-    /** Recursively merge an object with the patch data.
-     *
-     * Properties of the data object passed into the constructor will be merged with the properties
-     * of the object supplied as an argument to this function.
-     *
-     * @param object Object to be merged
-     * @param options Options controlling how merge will occur. See {@link  DEFAULT_OPTIONS}.
-     */
-    patch(object, options) {
-        options = Options.addDefaults(options);
-        let props = options.mergeInPlace ? object : Object.assign({}, object);
-        for (let name of Object.getOwnPropertyNames(this.data)) {
-            let prop = this.data[name].patch(props[name], options.getChildOptions(object, name));
-            if (prop === undefined)
-                delete props[name];
-            else 
-                props[name] = prop; 
-        }
-
-        return ElementFactory.createElement(props, options);
-    }
-
-    /** Constructor
-     *
-     * @param data to merge with target object. Each property of `data` will generally be a patch operation which
-     * affects the named property of the object targeted by patch().
-     */
-    constructor(data) { super(); this.data = data; }
-
-
-    toJSON() { return { op: this.name, data: _map(this.data, prop => prop.toJSON() ) } }
-    toString() { return `${this.name} { ${_reduce(_map(this.data, prop => prop.toString()), "", _appendString)} }` }
-}
-
-/** Represents an patch operation on an array row.
- *
- */
-class Row {
-    constructor(key, operation) {
-        console.assert(key !== undefined, "Key cannot be undefined");
-        this.key = key; this.op = operation;
-    }
-
-    toJSON() {
-        return { key: this.key, op: this.op.toJSON() };
-    }
-
-    toString() {
-        return `Row { ${this.key}, ${this.op.toString()} }`;
-    }
-}
-
-/** Merge operation for arrays.
- *
- *
- */
-class Arr extends Op {
-
-    /** Merge array data with data from the patch.
-    *
-    * @param array {Array} to merge with patch data.
-    * @param options options affecting how merge is performed. See {@link DEFAULT_OPTIONS}
-    */
-    patch(array, options) {
-        options = Options.addDefaults(options);
-        let result = ElementFactory.createElement([], options);
-
-        if (!options.sorted)
-            array = Array.from(array).sort((a,b) => _compare(a, b, options));
-
-        let i = 0;
-        let item = array[i++];
-        let element_options = options.getArrayElementOptions(array);
-
-        for (let row of this.data) {
-            while (i <= array.length && _compareWith(row.key, item, options) > 0) {
-                result.push(item);
-                item = array[i++];
-            }
-            logger.trace('item:', item, 'row:', row);
-            if (row.op instanceof Ins)
-                result.push(ElementFactory.createElement(row.op.data, element_options));
-            else {
-                logger.trace('patching', item, row.op);
-                let patch_item = row.op.patch(item, element_options);
-                if (patch_item != undefined) result.push(patch_item);
-                item = array[i++];
-            }
-        }
-
-        while (i <= array.length) { result.push(item); item = array[i++]; }
-        return result;
-    }
-
-    /** Create an array merge operation 
-     *
-     * @param operations {Array} An array of row merge operations, must be sorted by a suitable key
-     */
-    constructor(operations) {
-        super();
-        this.data = operations;
-    }
-
-    /** Convert to JSON representation.
-     *
-     * The JSON representation of an Arr operation looks like `{ op: 'Arr' data: [ <rows> ] }`
-     */
-    toJSON() {
-        return { op: this.name, data: this.data.map( row => row.toJSON() ) };
-    }
-
-    /** Convert to String representation.
-    *
-    * The String representation of an Arr operation looks like `Arr [ <rows> ]`
-    */
-   toString() {
-        return `Arr [ ${this.data.map(item => item.toString()).join(',')} ]`;
-    }
-}
-    
 
 /** Patch for objects
  *
@@ -446,14 +30,14 @@ class Patch {
 
     static _compareArrays(a,b, options) {
 
-        if (a.length === 0 && b.length === 0) return NOP;
-        if (a.length === 0 || b.length === 0) return new Rpl(b);
+        if (a.length === 0 && b.length === 0) return ops.NOP;
+        if (a.length === 0 || b.length === 0) return new ops.Rpl(b);
 
         let patch = [];
 
         if (!options.sorted) {
-            a = Array.from(a).sort((a,b) => _compare(a,b,options));
-            b = Array.from(b).sort((a,b) => _compare(a,b,options));
+            a = Array.from(a).sort((a,b) => (a,b,options));
+            b = Array.from(b).sort((a,b) => (a,b,options));
         }
 
         let ai = 1, bi = 1;
@@ -461,17 +45,17 @@ class Patch {
         let element_options = options.getArrayElementOptions();
 
         do {
-             let comparison = _compare(ao,bo,options);
+             let comparison = (ao,bo,options);
             logger.trace("comparing items", ao, bo, comparison);
            if (comparison < 0) {
                 logger.trace('skip');
                 ao = a[ai++]; 
             } else if (comparison > 0) {
                 logger.trace('insert');
-                patch.push(new Row(bo[options.key], new Ins(bo)));
+                patch.push(new ops.Row(bo[options.key], new ops.Ins(bo)));
                 bo = b[bi++];
             } else {
-                if (ao !== bo) patch.push(new Row(ao[options.key], Patch.compare(ao, bo, element_options)));
+                if (ao !== bo) patch.push(new ops.Row(ao[options.key], Patch.compare(ao, bo, element_options)));
                 else logger.trace('skip2');
                 ao = a[ai++]; 
                 bo = b[bi++];
@@ -479,16 +63,16 @@ class Patch {
         } while (ai <= a.length && bi <= b.length);
                 
         while (ai <= a.length) {
-            patch.push(new Row(ao[options.key], DEL));
+            patch.push(new ops.Row(ao[options.key], ops.DEL));
             ao=a[ai++]; 
         }
 
         while (bi <= b.length) {
-            patch.push(new Row(bo[options.key], new Ins(bo))); 
+            patch.push(new ops.Row(bo[options.key], new ops.Ins(bo))); 
             bo=b[bi++]; 
         }
         
-        return new Arr(patch);
+        return new ops.Arr(patch);
     }
 
     static _compareObjects(a,b,options) {
@@ -503,7 +87,7 @@ class Patch {
         for (let bkey of bkeys) 
             if (a[bkey] === undefined) data[bkey] = Patch.compare(undefined, b[bkey], options.getChildOptions(b,bkey));
         
-        return new Mrg(data);    
+        return new ops.Mrg(data);    
     }
 
 
@@ -518,11 +102,11 @@ class Patch {
 
         logger.trace('comparing', a, b);
         if (a === b)
-            return NOP;
+            return ops.NOP;
         if (b === undefined) 
-            return DEL;
+            return ops.DEL;
         if (a === undefined) 
-            return new Rpl(b);
+            return new ops.Rpl(b);
         
         if (typeof a === 'object' && typeof b === 'object') {
             if (a.constructor === b.constructor) {
@@ -532,10 +116,10 @@ class Patch {
                     return Patch._compareObjects(a,b,options);
                 }
             } else {
-                return new Rpl(b);
+                return new ops.Rpl(b);
             }
         } else {
-            return new Rpl(b);
+            return new ops.Rpl(b);
         }
     }
 
@@ -543,40 +127,40 @@ class Patch {
     /** Convert over-the-wire JSON format back into typed patch object
      */
     static fromJSON(object) {
-        if (object instanceof Op) return object; // If already patch, return it
-        if (object === undefined) return NOP;
+        if (object instanceof ops.Op) return object; // If already patch, return it
+        if (object === undefined) return ops.NOP;
         if (object.op) {
-            if (object.op === Rpl.name)
-                return new Rpl(object.data);
-            if (object.op === Ins.name)
-                return new Ins(object.data);
-            else if (object.op === NOP.name)
-                return NOP;
-            else if (object.op === DEL.name)
-                return DEL;
-            else if (object.op === Mrg.name) 
-                return new Mrg(_map(object.data, Patch.fromJSON));
-            else if (object.op === Arr.name) 
-                return new Arr(object.data.map(row => new Row(row.key, Patch.fromJSON(row.op))));
+            if (object.op === ops.Rpl.name)
+                return new ops.Rpl(object.data);
+            if (object.op === ops.Ins.name)
+                return new ops.Ins(object.data);
+            else if (object.op === ops.NOP.name)
+                return ops.NOP;
+            else if (object.op === ops.DEL.name)
+                return ops.DEL;
+            else if (object.op === ops.Mrg.name) 
+                return new ops.Mrg(utils.map(object.data, Patch.fromJSON));
+            else if (object.op === ops.Arr.name) 
+                return new ops.Arr(object.data.map(row => new ops.Row(row.key, Patch.fromJSON(row.op))));
             else throw new Error('unknown diff.op ' + object.op);
         } else {
-            return new Rpl(object);   
+            return new ops.Rpl(object);   
         }    
     }
 
 
     /** Name of Del operationn */
-    static get Del() { return DEL.name; }
+    static get Del() { return ops.DEL.name; }
     /** Name of Rpl operationn */
-    static get Rpl() { return Rpl.name; }
+    static get Rpl() { return ops.Rpl.name; }
     /** Name of Ins operationn */
-    static get Ins() { return Ins.name; }
+    static get Ins() { return ops.Ins.name; }
     /** Name of Nop operationn */
-    static get Nop() { return NOP.name; }
+    static get Nop() { return ops.NOP.name; }
     /** Name of Mrg operation */
-    static get Mrg() { return Mrg.name; }
+    static get Mrg() { return ops.Mrg.name; }
     /** Name of Arr operation */
-    static get Arr() { return Arr.name; }
+    static get Arr() { return ops.Arr.name; }
 }
 
 /** The Patch class defines the public API of this module. */
