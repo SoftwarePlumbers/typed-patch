@@ -4,8 +4,8 @@ const expect = chai.expect;
 
 
 const logger = { 
-    debug(...args) { console.log(...args); } 
-    //debug() {}
+    //debug(...args) { console.log(...args); } 
+    debug() {}
 };
 
 describe("Utils", () => {
@@ -39,13 +39,13 @@ describe("Utils", () => {
             let diff = "";
 
             utils.diff(s1, s2, 
-                add     => { diff = `${diff}+${add}` },
-                remove  => { diff = `${diff}-${remove}` },
-                skip    => { diff = `${diff}${skip}` }
+                (add,i)     => { diff = `${diff}|${i}:+${add}` },
+                (remove,i)  => { diff = `${diff}|${i}:-${remove}` },
+                (skip,i)    => { diff = `${diff}|${i}:${skip}` }
             );
 
             logger.debug(diff);
 
-            expect(diff).to.equal("-XM+ZJ-YA+W+XU-Z");
+            expect(diff).to.equal("|0:-X|1:M|1:+Z|2:J|3:-Y|4:A|4:+W|4:+X|5:U|6:-Z");
         });
 });

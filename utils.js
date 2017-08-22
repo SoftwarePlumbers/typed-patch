@@ -111,13 +111,13 @@ function lcsTable(a, b) {
 function diff(a, b, add, remove, skip, table = lcsTable(a,b), i = a.length-1, j = b.length-1) {
     if (i >= 0 && j >= 0 && a[i] === b[j]) {
         diff(a, b, add, remove, skip, table, i-1, j-1)
-        skip(a[i]);
+        skip(a[i],i);
     } else if (j >= 0 && (i === -1 || table[i+1][j] >= table[i][j+1])) {
         diff(a, b, add, remove, skip, table, i, j-1)
-        add(b[j]);
+        add(b[j],i);
     } else if (i >= 0 && (j === -1 || table[i+1][j] < table[i][j+1])) {
         diff(a, b, add, remove, skip, table, i-1, j)
-        remove(a[i]);
+        remove(a[i],i);
     }
 }
 

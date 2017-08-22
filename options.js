@@ -12,18 +12,19 @@
  *   | `keyComparator`          | `false` | Comparator function (a,b) => (-1/0/1) that orders key values
  *   | `sorted`                 | `false` | Assume array already sorted by key
  *   | `arrayElement`           | `false` | Type of element used as a last resort to create new object instances
- *   | `arrayElementType`       | `false` | Type of element used to create new elements in an array
- *   | `arrayElementFactory`    | `false` | Factory used to create new elements in an array 
+ *   | `collectionElementType`  | `false` | Type of element used to create new elements in an array
+ *   | `collectionElementFactory`|`false` | Factory used to create new elements in an array 
  */
 const DEFAULT_OPTIONS = {
     elementFactory : false,
     mergeInPlace : false,
     key: 'key',
+    map: false,
     keyComparator: false,
     sorted: false,
     elementType: false,
-    arrayElementType: false,
-    arrayElementFactory: false
+    collectionElementType: false,
+    collectionElementFactory: false
 }
 
 /** Holds options which change the way compare and patch operations are run.
@@ -73,8 +74,8 @@ class Options {
      */
     getArrayElementOptions() {
         let options = this.defaults ? new Options(this.defaults) : Object.assign(new Options(this), { defaults: this });
-        options.elementType = this.arrayElementType;
-        options.elementFactory = this.arrayElementFactory;
+        options.elementType = this.collectionElementType;
+        options.elementFactory = this.collectionElementFactory;
         return options;     
     }
 

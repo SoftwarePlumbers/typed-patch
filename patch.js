@@ -28,7 +28,7 @@ const logger = {
  */
 class Patch {
 
-    static _compareArrays(a,b, options) {
+    static _compareMaps(a,b, options) {
 
         if (a.length === 0 && b.length === 0) return ops.NOP;
         if (a.length === 0 || b.length === 0) return new ops.Rpl(b);
@@ -75,6 +75,18 @@ class Patch {
         return new ops.Map(patch);
     }
 
+    static _compareArrays(a,b,options) {
+        let result = [];
+
+        utils.diff(a,b, 
+            (add, index)    => { result.push(new ops.Row(index+1, new ops.Ins(add))); },
+            (remove, index) => { result.push(new ops.Row(index, ops.DEL)); },
+            (skip, index)   => { }
+        );
+
+        return new ops.Arr(result);
+    }
+
     static _compareObjects(a,b,options) {
 
         let data = {};
@@ -109,9 +121,13 @@ class Patch {
             return new ops.Rpl(b);
         
         if (typeof a === 'object' && typeof b === 'object') {
-            if (a.constructor === b.constructor) {
+            if (a.constructor === b.constructor) { // This isn't quite right, we can merge objects with a common base class
                 if (a instanceof Array) {
-                    return Patch._compareArrays(a,b,options);
+                    if (options.map) {
+                        return Patch._compareMaps(a,b,options);
+                    } else  {
+                        return Patch._compareArrays(a,b,options);
+                    }
                 } else {
                     return Patch._compareObjects(a,b,options);
                 }
@@ -142,6 +158,8 @@ class Patch {
                 return new ops.Mrg(utils.map(object.data, Patch.fromJSON));
             else if (object.op === ops.Map.name) 
                 return new ops.Map(object.data.map(row => new ops.Row(row.key, Patch.fromJSON(row.op))));
+            else if (object.op === ops.Arr.name) 
+                return new ops.Arr(object.data.map(row => new ops.Row(row.key, Patch.fromJSON(row.op))));
             else throw new Error('unknown diff.op ' + object.op);
         } else {
             return new ops.Rpl(object);   

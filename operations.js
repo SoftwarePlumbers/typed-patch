@@ -208,7 +208,7 @@ class Row {
     }
 }
 
-/** Merge operation for arrays.
+/** Merge operation for Maps (Map == iterable with a unique key)
  *
  *
  */
@@ -276,4 +276,68 @@ class Map extends Op {
     }
 }
 
-module.exports = { NOP, DEL, Ins, Rpl, Mrg, Map, Op, Row };
+/** Merge operation for arrays.
+ *
+ *
+ */
+class Arr extends Op {
+
+    /** Merge array data with data from the patch.
+    *
+    * @param array {Array} to merge with patch data.
+    * @param options options affecting how merge is performed. See {@link DEFAULT_OPTIONS}
+    */
+    patch(array, options) {
+        options = Options.addDefaults(options);
+        let result = ElementFactory.createElement([], options);
+
+        let i = 0;
+        let element_options = options.getArrayElementOptions(array);
+
+        for (let row of this.data) {
+
+            while (i < row.key) result.push(array[i++]);
+
+            if (row.op instanceof Ins) {
+                result.push(ElementFactory.createElement(row.op.data, element_options));
+            } else if (row.op instanceof Mrg) {
+                // This shouldn't occur, for now, as identity and equality are same thing.
+                logger.trace('patching', row.op);
+                let patch_item = row.op.patch(array[i++], element_options);
+                if (patch_item != undefined) result.push(patch_item);
+            } else if (row.op === DEL) {
+                i++;
+            }
+        }
+
+        while (i < array.length) result.push(array[i++]);
+        return result;
+    }
+
+    /** Create an array merge operation 
+     *
+     * @param operations {Array} An array of row merge operations, must be sorted by a suitable key
+     */
+    constructor(operations) {
+        super();
+        this.data = operations;
+    }
+
+    /** Convert to JSON representation.
+     *
+     * The JSON representation of an Map operation looks like `{ op: 'Map' data: [ <rows> ] }`
+     */
+    toJSON() {
+        return { op: this.name, data: this.data.map( row => row.toJSON() ) };
+    }
+
+    /** Convert to String representation.
+    *
+    * The String representation of an Map operation looks like `Map [ <rows> ]`
+    */
+   toString() {
+        return `Arr [ ${this.data.map(item => item.toString()).join(',')} ]`;
+    }
+}
+
+module.exports = { NOP, DEL, Ins, Rpl, Mrg, Map, Arr, Op, Row };

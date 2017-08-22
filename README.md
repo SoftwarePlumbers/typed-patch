@@ -49,8 +49,8 @@ In the case of array properties, getAttrProps may also return the following meta
 * `key` the name of a property that uniquely identifies elements in the array
 * `keyComparator` a compator object for comparing keys
 * `sorted` defines if the array can be assumed to be sorted by `key`
-* `arrayElementType` the type of elements in the array
-* `arrayElementFactory` a factor object for creating new array elements
+* `collectionElementType` the type of elements in the array
+* `collectionElementFactory` a factor object for creating new array elements
 
 
 
