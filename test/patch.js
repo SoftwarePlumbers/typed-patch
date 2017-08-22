@@ -20,7 +20,7 @@ const logger = {
     debug() {}
 };
 
-describe("Diff", () => {
+describe("Patch", () => {
 
         it ("has names for operations", () => {
             expect(Patch.Del).to.equal("Del");
@@ -28,7 +28,7 @@ describe("Diff", () => {
             expect(Patch.Nop).to.equal("Nop");
             expect(Patch.Rpl).to.equal("Rpl");
             expect(Patch.Mrg).to.equal("Mrg");
-            expect(Patch.Arr).to.equal("Arr");
+            expect(Patch.Map).to.equal("Map");
         });
 
         it("can do simple diff operations", () => {
@@ -61,14 +61,14 @@ describe("Diff", () => {
 
             let patch = Patch.compare(a,b);
             logger.debug(patch.toString());
-            expect(patch.name).to.equal(Patch.Arr);
+            expect(patch.name).to.equal(Patch.Map);
             expect(patch.data.length).to.equal(1);
             expect(patch.data[0].op.name).to.equal(Patch.Ins); 
             expect(patch.data[0].key).to.equal(4);
 
             patch = Patch.compare(b,a);
             logger.debug(patch);
-            expect(patch.name).to.equal(Patch.Arr);
+            expect(patch.name).to.equal(Patch.Map);
             expect(patch.data.length).to.equal(1);
             expect(patch.data[0].op.name).to.equal(Patch.Del);
             expect(patch.data[0].key).to.equal(4);
@@ -83,7 +83,7 @@ describe("Diff", () => {
 
             let patch = Patch.compare(a,b);
             logger.debug(patch.toString());
-            expect(patch.toString()).to.equal("Arr [ Row { 4, Ins { key: 4, text: tumpty } } ]");
+            expect(patch.toString()).to.equal("Map [ Row { 4, Ins { key: 4, text: tumpty } } ]");
 
             patch = Patch.compare(b,a);
             logger.debug(patch.toString());

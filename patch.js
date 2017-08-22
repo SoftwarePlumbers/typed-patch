@@ -72,7 +72,7 @@ class Patch {
             bo=b[bi++]; 
         }
         
-        return new ops.Arr(patch);
+        return new ops.Map(patch);
     }
 
     static _compareObjects(a,b,options) {
@@ -140,8 +140,8 @@ class Patch {
                 return ops.DEL;
             else if (object.op === ops.Mrg.name) 
                 return new ops.Mrg(utils.map(object.data, Patch.fromJSON));
-            else if (object.op === ops.Arr.name) 
-                return new ops.Arr(object.data.map(row => new ops.Row(row.key, Patch.fromJSON(row.op))));
+            else if (object.op === ops.Map.name) 
+                return new ops.Map(object.data.map(row => new ops.Row(row.key, Patch.fromJSON(row.op))));
             else throw new Error('unknown diff.op ' + object.op);
         } else {
             return new ops.Rpl(object);   
@@ -159,8 +159,8 @@ class Patch {
     static get Nop() { return ops.NOP.name; }
     /** Name of Mrg operation */
     static get Mrg() { return ops.Mrg.name; }
-    /** Name of Arr operation */
-    static get Arr() { return ops.Arr.name; }
+    /** Name of Map operation */
+    static get Map() { return ops.Map.name; }
 }
 
 /** The Patch class defines the public API of this module. */

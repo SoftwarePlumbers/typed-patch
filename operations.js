@@ -212,7 +212,7 @@ class Row {
  *
  *
  */
-class Arr extends Op {
+class Map extends Op {
 
     /** Merge array data with data from the patch.
     *
@@ -261,7 +261,7 @@ class Arr extends Op {
 
     /** Convert to JSON representation.
      *
-     * The JSON representation of an Arr operation looks like `{ op: 'Arr' data: [ <rows> ] }`
+     * The JSON representation of an Map operation looks like `{ op: 'Map' data: [ <rows> ] }`
      */
     toJSON() {
         return { op: this.name, data: this.data.map( row => row.toJSON() ) };
@@ -269,11 +269,11 @@ class Arr extends Op {
 
     /** Convert to String representation.
     *
-    * The String representation of an Arr operation looks like `Arr [ <rows> ]`
+    * The String representation of an Map operation looks like `Map [ <rows> ]`
     */
    toString() {
-        return `Arr [ ${this.data.map(item => item.toString()).join(',')} ]`;
+        return `Map [ ${this.data.map(item => item.toString()).join(',')} ]`;
     }
 }
 
-module.exports = { NOP, DEL, Ins, Rpl, Mrg, Arr, Op, Row };
+module.exports = { NOP, DEL, Ins, Rpl, Mrg, Map, Op, Row };

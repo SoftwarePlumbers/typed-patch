@@ -84,5 +84,44 @@ function compare(a,b, options) {
     return _compareWith(a[options.key],b, options)
 }
 
+function lcsTable(a, b) {
+
+    let la = a.length + 1;
+    let lb = b.length + 1;
+
+    lengths = Array(la);
+
+    lengths[0] = new Array(lb).fill(0);
+
+    for (let i = 1; i < la; i++) {
+        lengths[i] = Array(lb);
+        lengths[i][0] = 0;
+    }
+
+    for (let i = 0; i < a.length; i++)
+        for (let j = 0; j < b.length; j++)
+            if (a[i] === b[j])
+                lengths[i+1][j+1] = lengths[i][j] + 1
+            else
+                lengths[i+1][j+1] = Math.max(lengths[i+1][j], lengths[i][j+1])
+
+    return lengths;
+}
+
+function diff(a, b, add, remove, skip, table = lcsTable(a,b), i = a.length-1, j = b.length-1) {
+    if (i >= 0 && j >= 0 && a[i] === b[j]) {
+        diff(a, b, add, remove, skip, table, i-1, j-1)
+        skip(a[i]);
+    } else if (j >= 0 && (i === -1 || table[i+1][j] >= table[i][j+1])) {
+        diff(a, b, add, remove, skip, table, i, j-1)
+        add(b[j]);
+    } else if (i >= 0 && (j === -1 || table[i+1][j] < table[i][j+1])) {
+        diff(a, b, add, remove, skip, table, i-1, j)
+        remove(a[i]);
+    }
+}
+
+
+
 /** exports */
-module.exports = { map, reduce, appendString, print, compareWith, compare };
+module.exports = { map, reduce, appendString, print, compareWith, compare, lcsTable, diff };
