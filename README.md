@@ -22,7 +22,7 @@ For the latest API documentation see [The Software Plumbers Site](http://docs.so
 
 ## Project Status
 
-Early alpha. Don't use it unless you want to contribute bug fixes. Major elements of the API can and probably will change.
+Alpha. It seems functional, and the unit tests pass. The basic API is settling down.  
 
 ## Why another diff/patch utility?
 
@@ -46,11 +46,17 @@ This works in many cases, but not when the patch contains properties that do not
 
 In the case of array properties, getAttrProps may also return the following metadata:
 
-* `key` the name of a property that uniquely identifies elements in the array
-* `keyComparator` a compator object for comparing keys
-* `sorted` defines if the array can be assumed to be sorted by `key`
+
 * `collectionElementType` the type of elements in the array
 * `collectionElementFactory` a factor object for creating new array elements
+* `map` determines if an array can be treated as a map.
+* `key` the name of a property that uniquely identifies elements in the array (defaults to 'key')
+* `keyComparator` a comparator object for comparing keys
+* `sorted` defines if the array can be assumed to be sorted by `key`
+
+Maps are diffed and merged by comparing a sorted lists of key values; the order of maps may not be preserved in the merge 
+operation. For a map to be successfully patched, it must possess a key property. Non-maps are diffed using an LCS algorithm.
+As of now, the 'key' and 'keyComparator' options are only significant for maps. 
 
 
 
