@@ -217,16 +217,23 @@ describe("Patch", () => {
         });
 
         it("can patch an map of articles - updateing a single item in the middle", () => {
-            let array1 = [ article1, article2, article3 ];
-            let array2 = [ article1, Object.assign(new Article(), article2, { markdown: "botulism"}), article3 ];
+            let map1 = new Map([
+                [ article1.key, article1 ], 
+                [ article2.key, article2 ],
+                [ article3.key, article3 ]
+            ]);
 
-            let diff = Patch.compare(array1, array2, ARTICLE_MAP_PROPS);
+            let map2 = new Map(map1.entries());
+            
+            map2.set(article2.key, Object.assign(new Article(), article2, { markdown: "botulism"} ));
+
+            let diff = Patch.compare(map1, map2);
             logger.debug(diff.toString());
-            let array3=diff.patch(array1, ARTICLE_MAP_PROPS);
-            logger.debug(array3);
-            expect(array3).to.have.lengthOf(3);
-            expect(array3[1]).to.be.instanceof(Article);
-            expect(array3[1].markdown).to.equal("botulism");
+            let map3=diff.patch(map1, { collectionElementFactory: Article.fromJSON });
+            logger.debug(map3);
+            expect(map3.size).to.equal(3);
+            expect(map3.get(article2.key)).to.be.instanceof(Article);
+            expect(map3.get(article2.key).markdown).to.equal("botulism");
         });
 
         it("can patch an array of articles - replacing a single item in the middle", () => {
@@ -258,7 +265,6 @@ describe("Patch", () => {
             expect(array3[1]).to.be.instanceof(Article);
             expect(array3[1].markdown).to.equal("botulism");
         });
-  
     }
 );
 

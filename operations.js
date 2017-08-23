@@ -257,7 +257,8 @@ class Map extends Op {
 
             if (comparison === 0) {
                 debug("merge");
-                let value = row.op.patch(item, element_options);
+                let value = row.op.patch(options.value(item), element_options);
+                debug("merged", value);
                 if (value) result.push(options.entry(row.key, value));                
                 row = this.data[i++];
             } else {
