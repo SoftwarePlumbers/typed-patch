@@ -1,4 +1,5 @@
 const Patch = require('../patch');
+const Ops = require('../operations')
 const chai = require('chai');
 const expect = chai.expect;
 
@@ -19,29 +20,20 @@ const MAP_PROPS = { map: true, key: e=>e.key, value: e=>e, entry: (k,v)=>v };
 const ARTICLE_MAP_PROPS = { map: true, key: e=>e.key, value: e=>e, entry: (k,v)=>v, collectionElementFactory: Article.fromJSON };
 
 const logger = { 
-    debug(...args) { console.log(...args); } 
-    //debug() {}
+    //debug(...args) { console.log(...args); } 
+    debug() {}
 };
 
 describe("Patch", () => {
-
-        it ("has names for operations", () => {
-            expect(Patch.Del).to.equal("Del");
-            expect(Patch.Ins).to.equal("Ins");
-            expect(Patch.Nop).to.equal("Nop");
-            expect(Patch.Rpl).to.equal("Rpl");
-            expect(Patch.Mrg).to.equal("Mrg");
-            expect(Patch.Map).to.equal("Map");
-        });
 
         it("can do simple diff operations", () => {
 
             let a = {a : 1, b: 2, c: 3 };
             let b = {a : 1, b: 4, c: 3 };
             let patch = Patch.compare(a,b);
-            expect(patch.name).to.equal(Patch.Mrg);
+            expect(patch.name).to.equal(Ops.Mrg.name);
             logger.debug(patch);
-            expect(patch.data.b.name).to.equal(Patch.Rpl);
+            expect(patch.data.b.name).to.equal(Ops.Rpl.name);
             expect(patch.data.b.data).to.equal(4);
 
             let c = patch.patch(a);
@@ -64,16 +56,16 @@ describe("Patch", () => {
 
             let patch = Patch.compare(a,b);
             logger.debug(patch);
-            expect(patch.name).to.equal(Patch.Map);
+            expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
-            expect(patch.data[0].op.name).to.equal(Patch.Ins); 
+            expect(patch.data[0].op.name).to.equal(Ops.Ins.name); 
             expect(patch.data[0].key).to.equal(4);
 
             patch = Patch.compare(b,a);
             logger.debug(patch);
-            expect(patch.name).to.equal(Patch.Map);
+            expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
-            expect(patch.data[0].op.name).to.equal(Patch.Del);
+            expect(patch.data[0].op.name).to.equal(Ops.DEL.name);
             expect(patch.data[0].key).to.equal(4);
 
         });
@@ -86,16 +78,16 @@ describe("Patch", () => {
 
             let patch = Patch.compare(a,b, MAP_PROPS);
             logger.debug(patch.toString());
-            expect(patch.name).to.equal(Patch.Map);
+            expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
-            expect(patch.data[0].op.name).to.equal(Patch.Ins); 
+            expect(patch.data[0].op.name).to.equal(Ops.Ins.name); 
             expect(patch.data[0].key).to.equal(4);
 
             patch = Patch.compare(b,a,MAP_PROPS);
             logger.debug(patch);
-            expect(patch.name).to.equal(Patch.Map);
+            expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
-            expect(patch.data[0].op.name).to.equal(Patch.Del);
+            expect(patch.data[0].op.name).to.equal(Ops.DEL.name);
             expect(patch.data[0].key).to.equal(4);
 
         });

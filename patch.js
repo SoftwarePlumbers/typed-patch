@@ -14,11 +14,8 @@ const logger = {
 
 /** Patch for objects
  *
- * Class that should allow us to compare two objects, compute a difference, send the difference over the wire, and apply a patch at the far end
+ * Functions that should allow us to compare two objects, compute a difference, send the difference over the wire, and apply a patch at the far end
  * to sync a remote object with the changes.
- *
- * At the moment, for it to work with arrays, each member of the array must have a key property which uniquely identifies it
- * and on which it can be sorted (arrays must have a stable sort order to be logically patched...).
  *
  * For 'patch' to work properly, the patched object (and child objects) should have a static 'fromJSON' method somewhere in its inheritance tree.
  * You may also implement a static 'getAttrProps(name)' object, which may return a variety of options that are applied to
@@ -26,9 +23,7 @@ const logger = {
  *
  * Won't work with cyclic data structures.
  */
-class Patch {
-
-    static _compareMaps(a,b, options) {
+function _compareMaps(a,b, options) {
 
         if (a.length === 0 && b.length === 0) return ops.NOP;
         if (a.length === 0 || b.length === 0) return new ops.Rpl(b);
@@ -57,7 +52,7 @@ class Patch {
                 bo = b[bi++];
             } else {
                 if (options.value(ao) !== options.value(bo)) {
-                    let element_patch = Patch.compare(options.value(ao), options.value(bo), element_options)
+                    let element_patch = compare(options.value(ao), options.value(bo), element_options)
                     if (element_patch != ops.NOP) patch.push(new ops.Row(options.key(bo), element_patch));
                 }
                 else logger.trace('skip2');
@@ -84,7 +79,7 @@ class Patch {
         return new ops.Map(patch);
     }
 
-    static _compareArrays(a,b,options) {
+function _compareArrays(a,b,options) {
         let result = [];
 
         utils.diff(a,b, 
@@ -96,29 +91,29 @@ class Patch {
         return new ops.Arr(result);
     }
 
-    static _compareObjects(a,b,options) {
+function _compareObjects(a,b,options) {
 
         let data = {};
         let akeys = Object.getOwnPropertyNames(a);
         let bkeys = Object.getOwnPropertyNames(b);
         
         for (let akey of akeys) {
-            if (a[akey] !== b[akey]) data[akey] = Patch.compare(a[akey], b[akey], options.getChildOptions(a,akey));
+            if (a[akey] !== b[akey]) data[akey] = compare(a[akey], b[akey], options.getChildOptions(a,akey));
         } 
         for (let bkey of bkeys) 
-            if (a[bkey] === undefined) data[bkey] = Patch.compare(undefined, b[bkey], options.getChildOptions(b,bkey));
+            if (a[bkey] === undefined) data[bkey] = compare(undefined, b[bkey], options.getChildOptions(b,bkey));
         
         return new ops.Mrg(data);    
     }
 
 
-    /** Compare two object to produce a patch object.
-     *
-     * @param a First object for comparison
-     * @param b Second object for comparison
-     * @param options (optional) options to control comparison operation (see {@link DEFAULT_OPTIONS})
-     */
-    static compare(a,b,options) {
+/** Compare two object to produce a patch object.
+ *
+ * @param a First object for comparison
+ * @param b Second object for comparison
+ * @param options (optional) options to control comparison operation (see {@link DEFAULT_OPTIONS})
+ */
+function compare(a,b,options) {
         options = Options.addDefaults(options);
 
         logger.trace('comparing', a, b);
@@ -133,14 +128,14 @@ class Patch {
             if (a.constructor === b.constructor) { // This isn't quite right, we can merge objects with a common base class
                 if (a instanceof Array) {
                     if (options.map) {
-                        return Patch._compareMaps(a,b,options);
+                        return _compareMaps(a,b,options);
                     } else  {
-                        return Patch._compareArrays(a,b,options);
+                        return _compareArrays(a,b,options);
                     }
                 } else if (a instanceof Map) {
-                    return Patch._compareMaps(a,b,options);
+                    return _compareMaps(a,b,options);
                 } else {
-                    return Patch._compareObjects(a,b,options);
+                    return _compareObjects(a,b,options);
                 }
             } else {
                 return new ops.Rpl(b);
@@ -148,12 +143,12 @@ class Patch {
         } else {
             return new ops.Rpl(b);
         }
-    }
+}
 
 
-    /** Convert over-the-wire JSON format back into typed patch object
-     */
-    static fromJSON(object) {
+/** Convert over-the-wire JSON format back into typed patch object
+ */
+function fromJSON(object) {
         if (object instanceof ops.Op) return object; // If already patch, return it
         if (object === undefined) return ops.NOP;
         if (object.op) {
@@ -166,32 +161,17 @@ class Patch {
             else if (object.op === ops.DEL.name)
                 return ops.DEL;
             else if (object.op === ops.Mrg.name) 
-                return new ops.Mrg(utils.map(object.data, Patch.fromJSON));
+                return new ops.Mrg(utils.map(object.data, fromJSON));
             else if (object.op === ops.Map.name) 
-                return new ops.Map(object.data.map(row => new ops.Row(row.key, Patch.fromJSON(row.op))));
+                return new ops.Map(object.data.map(row => new ops.Row(row.key, fromJSON(row.op))));
             else if (object.op === ops.Arr.name) 
-                return new ops.Arr(object.data.map(row => new ops.Row(row.key, Patch.fromJSON(row.op))));
+                return new ops.Arr(object.data.map(row => new ops.Row(row.key, fromJSON(row.op))));
             else throw new Error('unknown diff.op ' + object.op);
         } else {
             return new ops.Rpl(object);   
         }    
-    }
-
-
-    /** Name of Del operationn */
-    static get Del() { return ops.DEL.name; }
-    /** Name of Rpl operationn */
-    static get Rpl() { return ops.Rpl.name; }
-    /** Name of Ins operationn */
-    static get Ins() { return ops.Ins.name; }
-    /** Name of Nop operationn */
-    static get Nop() { return ops.NOP.name; }
-    /** Name of Mrg operation */
-    static get Mrg() { return ops.Mrg.name; }
-    /** Name of Map operation */
-    static get Map() { return ops.Map.name; }
 }
 
-/** The Patch class defines the public API of this module. */
-module.exports = Patch;
+/** the public API of this module. */
+module.exports = { compare, fromJSON };
 
