@@ -2,6 +2,7 @@ const Patch = require('../patch');
 const Ops = require('../operations')
 const chai = require('chai');
 const expect = chai.expect;
+const debug = require('debug')('typed-patch~tests');
 
 let flour = { key: 1, text: 'flour' };
 let eggs = { key: 2, text: 'eggs' };

@@ -4,13 +4,10 @@
  const utils = require('./utils');
  const ops = require('./operations');
  const Options = require('./options');
+ const debug = require('debug')('typed-patch~patch');
 
  'use strict';
 
- const logger = { 
-    //trace(...args) { console.log(...args); } 
-    trace() {}
-};
 
 /** Patch for objects
  *
@@ -41,12 +38,12 @@
 
     do {
         let comparison = utils.compare(ao,bo,options);
-        logger.trace("comparing items", ao, bo, comparison);
+        debug("comparing items", ao, bo, comparison);
         if (comparison < 0) {
-            logger.trace('skip');
+            debug('skip');
             ao = a[ai++]; 
         } else if (comparison > 0) {
-            logger.trace('insert');
+            debug('insert');
             patch.push(new ops.Row(options.key(bo), 
                 new ops.Ins(options.value(bo))));
             bo = b[bi++];
@@ -55,12 +52,12 @@
                 let element_patch = compare(options.value(ao), options.value(bo), element_options)
                 if (element_patch != ops.NOP) patch.push(new ops.Row(options.key(bo), element_patch));
             }
-            else logger.trace('skip2');
+            else debug('skip2');
             ao = a[ai++]; 
             bo = b[bi++];
         }
     } while (ai <= a.length && bi <= b.length);
-    
+
     while (ai <= a.length) {
         patch.push(new ops.Row(options.key(ao), ops.DEL));
         ao=a[ai++]; 
@@ -75,7 +72,7 @@
             ); 
         bo=b[bi++]; 
     }
-    
+
     return new ops.Map(patch);
 }
 
@@ -96,13 +93,13 @@ function _compareObjects(a,b,options) {
     let data = {};
     let akeys = Object.getOwnPropertyNames(a);
     let bkeys = Object.getOwnPropertyNames(b);
-    
+
     for (let akey of akeys) {
         if (a[akey] !== b[akey]) data[akey] = compare(a[akey], b[akey], options.getChildOptions(a,akey));
     } 
     for (let bkey of bkeys) 
         if (a[bkey] === undefined) data[bkey] = compare(undefined, b[bkey], options.getChildOptions(b,bkey));
-    
+
     return new ops.Mrg(data);    
 }
 
@@ -116,14 +113,14 @@ function _compareObjects(a,b,options) {
  function compare(a,b,options) {
     options = Options.addDefaults(options);
 
-    logger.trace('comparing', a, b);
+    debug('comparing', a, b);
     if (a === b)
         return ops.NOP;
     if (b === undefined) 
         return ops.DEL;
     if (a === undefined) 
         return new ops.Rpl(b);
-    
+
     if (typeof a === 'object' && typeof b === 'object') {
             if (a.constructor === b.constructor) { // This isn't quite right, we can merge objects with a common base class
                 if (a instanceof Array) {

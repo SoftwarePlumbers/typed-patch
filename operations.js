@@ -6,10 +6,7 @@
 const utils = require('./utils');
 const Options = require('./options');
 
-const logger = { 
-    //trace(...args) { console.log(...args); } 
-    trace() {}
-};
+const debug = require('debug')('typed-patch~operations');
 
 /** Utility for creating patched data elements, controlled by options object.
  */
@@ -26,7 +23,7 @@ class ElementFactory {
      * @param type_hint for when result type info needs to be inferred from input objects (i.e. a dirty hack)
      */
     static createElement(props, options, type_hint) {
-        //logger.trace('ElementFactory.createElement', props, options);
+        //debug('ElementFactory.createElement', props, options);
         if (options.elementFactory) return options.elementFactory(props);
         if (options.elementType) {
             let e = new options.elementType();
@@ -34,7 +31,7 @@ class ElementFactory {
             return e;
         } else {
             if (type_hint) {
-                logger.trace('type hint', type_hint, props);
+                debug('type hint', type_hint, props);
                 if (type_hint === Array)  {
                     return Array.from(props);
                 }
@@ -245,13 +242,13 @@ class Map extends Op {
 
         let row = this.data[i++];
         for (let item of map) {
-            logger.trace('loop', i, item, row);
+            debug('loop', i, item, row);
 
             let comparison = row ? utils.compareWith(row.key,item,options) : 1;
-            logger.trace('c', comparison);
+            debug('c', comparison);
 
             while (comparison < 0) {
-                logger.trace('ins',row);
+                debug('ins',row);
                 let value = ElementFactory.createElement(row.op.data, element_options);
                 result.push(options.entry(row.key, value));
                 row = this.data[i++];
@@ -259,12 +256,12 @@ class Map extends Op {
             }
 
             if (comparison === 0) {
-                logger.trace("merge");
+                debug("merge");
                 let value = row.op.patch(item, element_options);
                 if (value) result.push(options.entry(row.key, value));                
                 row = this.data[i++];
             } else {
-                logger.trace("copy");
+                debug("copy");
                 result.push(item);
             }
 
@@ -331,7 +328,7 @@ class Arr extends Op {
                 result.push(ElementFactory.createElement(row.op.data, element_options));
             } else if (row.op instanceof Mrg) {
                 // This shouldn't occur, for now, as identity and equality are same thing.
-                logger.trace('patching', row.op);
+                debug('patching', row.op);
                 let patch_item = row.op.patch(array[i++], element_options);
                 if (patch_item != undefined) result.push(patch_item);
             } else if (row.op === DEL) {
