@@ -16,6 +16,9 @@ and object3 should equal object1.
 
 If any of the properties and sub-properties of object1 are themselves classes, and have a static method `fromJSON` somewhere in their prototype chain, then this `fromJSON` method will be applied to the result of merging properties betweem the appropriate sub-trees in order to create an object of the correct class.
 
+Arrays are merged with an LCS diff algorithm, preserving sort order. ES6 Map objects are merged using an ordered join which
+may result in a different order of elements in the resulting maps (the result will always be sorted by key).
+
 The utility has more subtle and feature-rich ways of specifying types, and doing things like deciding the type of array elements and specifying how arrays are merged. If interested, read on.
 
 For the latest API documentation see [The Software Plumbers Site](http://docs.softwareplumbers.com/typed-patch/master)
@@ -42,22 +45,23 @@ By default, typed-patch therefore derives type information entirely from the obj
 
 This works in many cases, but not when the patch contains properties that do not exist in the patched object. In this case, we need to implement a getAttrProps static method which takes a name argument and returns an object containing a factory method (`elementFactory`) or an object type `elementType` suitable for populating the property of that name.
 
-## Array properties
+## Array and Map properties
 
-In the case of array properties, getAttrProps may also return the following metadata:
+In the case of array and map properties, getAttrProps may also return the following metadata:
 
 
 * `collectionElementType` the type of elements in the array
 * `collectionElementFactory` a factor object for creating new array elements
-* `map` determines if an array can be treated as a map.
-* `key` the name of a property that uniquely identifies elements in the array (defaults to 'key')
-* `keyComparator` a comparator object for comparing keys
-* `sorted` defines if the array can be assumed to be sorted by `key`
+* `sorted` defines if a map can be assumed to be sorted by its key (avoiding a re-sort)
+* `map` determines if an array can be treated as a map. If so, the additional properties below are needed
+* `key` a function that can extract a unique ID from the array element (e.g. `e=>e.id`)
+* `value` a function that can extract a value from the array element (e.g. to `e=>e`) 
+* `entry` a function that can construct a array element from a key/value pair (e.g. `(k,v)=>v`)
+* `keyComparator` a comparator object for comparing keys, required if key values cannot be compared with >,<,===
 
 Maps are diffed and merged by comparing a sorted lists of key values; the order of maps may not be preserved in the merge 
-operation. For a map to be successfully patched, it must possess a key property. Non-maps are diffed using an LCS algorithm.
-As of now, the 'key' and 'keyComparator' options are only significant for maps. 
-
+operation. Arrays are diffed using an LCS algorithm, unless the 'map' option is true in which case they are diffed as Maps
+using the values extracted by the key and value functions.
 
 
 
