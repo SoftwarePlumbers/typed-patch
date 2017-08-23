@@ -4,7 +4,8 @@
   "description": "Type-aware object patch",
   "main": "index.js",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "docs": "jsdoc -c ./jsdoc.conf -t ./node_modules/ink-docstrap/template README.md *.js"
   },
   "repository": {
     "type": "git",

@@ -36,8 +36,8 @@ class Patch {
         let patch = [];
 
         if (!options.sorted) {
-            a = Array.from(a).sort((a,b) => (a,b,options));
-            b = Array.from(b).sort((a,b) => (a,b,options));
+            a = Array.from(a).sort((a,b) => utils.compare(a,b,options));
+            b = Array.from(b).sort((a,b) => utils.compare(a,b,options));
         }
 
         let ai = 1, bi = 1;
@@ -45,17 +45,21 @@ class Patch {
         let element_options = options.getArrayElementOptions();
 
         do {
-             let comparison = (ao,bo,options);
+            let comparison = utils.compare(ao,bo,options);
             logger.trace("comparing items", ao, bo, comparison);
-           if (comparison < 0) {
+            if (comparison < 0) {
                 logger.trace('skip');
                 ao = a[ai++]; 
             } else if (comparison > 0) {
                 logger.trace('insert');
-                patch.push(new ops.Row(bo[options.key], new ops.Ins(bo)));
+                patch.push(new ops.Row(options.key(bo), 
+                                        new ops.Ins(options.value(bo))));
                 bo = b[bi++];
             } else {
-                if (ao !== bo) patch.push(new ops.Row(ao[options.key], Patch.compare(ao, bo, element_options)));
+                if (options.value(ao) !== options.value(bo)) {
+                    let element_patch = Patch.compare(options.value(ao), options.value(bo), element_options)
+                    if (element_patch != ops.NOP) patch.push(new ops.Row(options.key(bo), element_patch));
+                }
                 else logger.trace('skip2');
                 ao = a[ai++]; 
                 bo = b[bi++];
@@ -63,12 +67,17 @@ class Patch {
         } while (ai <= a.length && bi <= b.length);
                 
         while (ai <= a.length) {
-            patch.push(new ops.Row(ao[options.key], ops.DEL));
+            patch.push(new ops.Row(options.key(ao), ops.DEL));
             ao=a[ai++]; 
         }
 
         while (bi <= b.length) {
-            patch.push(new ops.Row(bo[options.key], new ops.Ins(bo))); 
+            patch.push(
+                new ops.Row(
+                    options.key(bo), 
+                    new ops.Ins(options.value(bo))
+                )
+            ); 
             bo=b[bi++]; 
         }
         
@@ -128,6 +137,8 @@ class Patch {
                     } else  {
                         return Patch._compareArrays(a,b,options);
                     }
+                } else if (a instanceof Map) {
+                    return Patch._compareMaps(a,b,options);
                 } else {
                     return Patch._compareObjects(a,b,options);
                 }

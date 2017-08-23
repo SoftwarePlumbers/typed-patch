@@ -63,7 +63,7 @@ function print(object) {
  * 
  */
 function compareWith(akey, b, options) {
-    let bkey = b[options.key];
+    let bkey = options.key(b);
     if (options.keyComparator) return options.keyComparator(akey,bkey);
     if (akey < bkey) return -1;
     if (akey > bkey) return 1;
@@ -81,7 +81,7 @@ function compareWith(akey, b, options) {
  */
 function compare(a,b, options) {
     if (a === b) return 0;
-    return _compareWith(a[options.key],b, options)
+    return compareWith(options.key(a), b, options)
 }
 
 function lcsTable(a, b) {

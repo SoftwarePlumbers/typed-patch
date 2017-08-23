@@ -4,21 +4,25 @@
 
 /** Default options for diff 
  *
- *   | Option                   | Default | Description
-     |--------------------------|---------|-------------------------- 
- *   | `elementFactory`         | `false` | Factory used to create new object instances 
- *   | `mergeInPlace`           | `false` | Patch will copy properties into existing object rather than creating a new one 
- *   | `key`                    | `'key'` | Name of unique key object that distinguishes items in array
- *   | `keyComparator`          | `false` | Comparator function (a,b) => (-1/0/1) that orders key values
- *   | `sorted`                 | `false` | Assume array already sorted by key
- *   | `arrayElement`           | `false` | Type of element used as a last resort to create new object instances
- *   | `collectionElementType`  | `false` | Type of element used to create new elements in an array
- *   | `collectionElementFactory`|`false` | Factory used to create new elements in an array 
+ *   | Option                    | Default    | Description
+ *   |---------------------------|------------|-------------------------- 
+ *   | `elementFactory`          | `false`    | Factory used to create new object instances 
+ *   | `mergeInPlace`            | `false`    | Patch will copy properties into existing object rather than creating a new one
+ *   | `key`                     | `e=>e[0]`  | Function to extract key from a map entry
+ *   | `value`                   | `e=>e[1]`  | Function that extracts value from map entry
+ *   | `entry`                   | `(k,v)=>[k,v]`| Create a map entry
+ *   | `keyComparator`           | `false`    | Comparator function (a,b) => (-1/0/1) that orders key values
+ *   | `sorted`                  | `false`    | Assume array already sorted by key
+ *   | `arrayElement`            | `false`    | Type of element used as a last resort to create new object instances
+ *   | `collectionElementType`   | `false`    | Type of element used to create new elements in an array
+ *   | `collectionElementFactory`| `false`    | Factory used to create new elements in an array 
  */
 const DEFAULT_OPTIONS = {
     elementFactory : false,
     mergeInPlace : false,
-    key: 'key',
+    key: e=>e[0],
+    value: e=>e[1],
+    entry: (k,v)=>[k,v],
     map: false,
     keyComparator: false,
     sorted: false,

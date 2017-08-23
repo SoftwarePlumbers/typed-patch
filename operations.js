@@ -23,16 +23,27 @@ class ElementFactory {
      * 
      * @param props Merged properties
      * @param options {Options} controls how new merged object is created from merged properties
+     * @param type_hint for when result type info needs to be inferred from input objects (i.e. a dirty hack)
      */
-    static createElement(props, options) {
-        logger.trace('ElementFactory.createElement', props, options);
+    static createElement(props, options, type_hint) {
+        //logger.trace('ElementFactory.createElement', props, options);
         if (options.elementFactory) return options.elementFactory(props);
         if (options.elementType) {
             let e = new options.elementType();
             Object.assign(e, props);
             return e;
         } else {
-            return props;
+            if (type_hint) {
+                logger.trace('type hint', type_hint, props);
+                if (type_hint === Array)  {
+                    return Array.from(props);
+                }
+                else
+                    return new type_hint(props);
+
+            } else {
+                return props;
+            }
         }
     }
  }
@@ -214,40 +225,58 @@ class Row {
  */
 class Map extends Op {
 
-    /** Merge array data with data from the patch.
+    /** Merge map data with data from the patch.
     *
-    * @param array {Array} to merge with patch data.
+    * @param map {Map,Array} to merge with patch data.
     * @param options options affecting how merge is performed. See {@link DEFAULT_OPTIONS}
     */
-    patch(array, options) {
+    patch(map, options) {
         options = Options.addDefaults(options);
-        let result = ElementFactory.createElement([], options);
+        let result = [];
+
+        let type_hint = map.constructor; // So we can return an array or map as appropriate
 
         if (!options.sorted)
-            array = Array.from(array).sort((a,b) => (a, b, options));
+            map = Array.from(map).sort((a,b) => (a, b, options));
 
+
+        let element_options = options.getArrayElementOptions(map);
         let i = 0;
-        let item = array[i++];
-        let element_options = options.getArrayElementOptions(array);
 
-        for (let row of this.data) {
-            while (i <= array.length && utils.compareWith(row.key, item, options) > 0) {
+        let row = this.data[i++];
+        for (let item of map) {
+            logger.trace('loop', i, item, row);
+
+            let comparison = row ? utils.compareWith(row.key,item,options) : 1;
+            logger.trace('c', comparison);
+
+            while (comparison < 0) {
+                logger.trace('ins',row);
+                let value = ElementFactory.createElement(row.op.data, element_options);
+                result.push(options.entry(row.key, value));
+                row = this.data[i++];
+                comparison = row ? utils.compareWith(row.key,item,options) : 1;
+            }
+
+            if (comparison === 0) {
+                logger.trace("merge");
+                let value = row.op.patch(item, element_options);
+                if (value) result.push(options.entry(row.key, value));                
+                row = this.data[i++];
+            } else {
+                logger.trace("copy");
                 result.push(item);
-                item = array[i++];
             }
-            logger.trace('item:', item, 'row:', row);
-            if (row.op instanceof Ins)
-                result.push(ElementFactory.createElement(row.op.data, element_options));
-            else {
-                logger.trace('patching', item, row.op);
-                let patch_item = row.op.patch(item, element_options);
-                if (patch_item != undefined) result.push(patch_item);
-                item = array[i++];
-            }
+
         }
 
-        while (i <= array.length) { result.push(item); item = array[i++]; }
-        return result;
+        while (i <= this.data.length) {
+            let value = ElementFactory.createElement(row.op.data, element_options);
+            result.push(options.entry(row.key, value));
+            row = this.data[i++];
+        }
+
+        return ElementFactory.createElement(result, options, type_hint);
     }
 
     /** Create an array merge operation 
