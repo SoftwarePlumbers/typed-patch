@@ -227,7 +227,7 @@ class Map extends Op {
 
     /** Merge map data with data from the patch.
     *
-    * @param map {Map,Array} to merge with patch data.
+    * @param map to merge with patch data.
     * @param options options affecting how merge is performed. See {@link DEFAULT_OPTIONS}
     */
     patch(map, options) {
