@@ -23,7 +23,7 @@ class ElementFactory {
      * @param type_hint for when result type info needs to be inferred from input objects (i.e. a dirty hack)
      */
     static createElement(props, options, type_hint) {
-        //debug('ElementFactory.createElement', props, options);
+        debug('ElementFactory.createElement', props, options);
         if (options.elementFactory) return options.elementFactory(props);
         if (options.elementType) {
             let e = new options.elementType();
@@ -233,8 +233,10 @@ class Map extends Op {
 
         let type_hint = map.constructor; // So we can return an array or map as appropriate
 
-        if (!options.sorted)
-            map = Array.from(map).sort((a,b) => (a, b, options));
+        if (!options.sorted) {
+            debug("sorting")
+            map = Array.from(map).sort((a,b) => utils.compare(a, b, options));
+        }
 
 
         let element_options = options.getArrayElementOptions(map);
@@ -256,7 +258,7 @@ class Map extends Op {
             }
 
             if (comparison === 0) {
-                debug("merge");
+                debug("merge", element_options);
                 let value = row.op.patch(options.value(item), element_options);
                 debug("merged", value);
                 if (value) result.push(options.entry(row.key, value));                
