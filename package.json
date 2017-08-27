@@ -32,6 +32,6 @@
     "mocha": "^3.5.0"
   },
   "dependencies": {
-    "debug": "^3.0.0"
+    "debug": "^3.0.1"
   }
 }

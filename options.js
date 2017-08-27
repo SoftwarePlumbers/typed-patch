@@ -56,6 +56,7 @@ class Options {
      */
     getChildOptions(obj,name) {
         let options = this.defaults ? new Options(this.defaults) : Object.assign(new Options(this), { defaults: this });
+        delete options.elementType; /// element type is not inherited by child, but elementFactory is. TODO: document
         if (obj) {
             let child = obj[name];
             if (child && typeof child === 'object') {

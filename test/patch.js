@@ -20,11 +20,6 @@ let article3 = new Article({ key: 3, markdown: "toast", isPublic: true });
 const MAP_PROPS = { map: true, key: e=>e.key, value: e=>e, entry: (k,v)=>v };
 const ARTICLE_MAP_PROPS = { map: true, key: e=>e.key, value: e=>e, entry: (k,v)=>v, collectionElementFactory: Article.fromJSON };
 
-const logger = { 
-    //debug(...args) { console.log(...args); } 
-    debug() {}
-};
-
 describe("Patch", () => {
 
         it("can do simple diff operations", () => {
@@ -33,12 +28,12 @@ describe("Patch", () => {
             let b = {a : 1, b: 4, c: 3 };
             let patch = Patch.compare(a,b);
             expect(patch.name).to.equal(Ops.Mrg.name);
-            logger.debug(patch);
+            debug(patch);
             expect(patch.data.b.name).to.equal(Ops.Rpl.name);
             expect(patch.data.b.data).to.equal(4);
 
             let c = patch.patch(a);
-            logger.debug(c);
+            debug(c);
             expect(c.b).to.equal(4);
         });
 
@@ -56,14 +51,14 @@ describe("Patch", () => {
             b.set(4,"tumpty");
 
             let patch = Patch.compare(a,b);
-            logger.debug(patch);
+            debug(patch);
             expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
             expect(patch.data[0].op.name).to.equal(Ops.Ins.name); 
             expect(patch.data[0].key).to.equal(4);
 
             patch = Patch.compare(b,a);
-            logger.debug(patch);
+            debug(patch);
             expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
             expect(patch.data[0].op.name).to.equal(Ops.DEL.name);
@@ -78,14 +73,14 @@ describe("Patch", () => {
             b.push({ key: 4, text: "tumpty" });
 
             let patch = Patch.compare(a,b, MAP_PROPS);
-            logger.debug(patch.toString());
+            debug(patch.toString());
             expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
             expect(patch.data[0].op.name).to.equal(Ops.Ins.name); 
             expect(patch.data[0].key).to.equal(4);
 
             patch = Patch.compare(b,a,MAP_PROPS);
-            logger.debug(patch);
+            debug(patch);
             expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
             expect(patch.data[0].op.name).to.equal(Ops.DEL.name);
@@ -100,11 +95,11 @@ describe("Patch", () => {
             b.push({ key: 4, text: "tumpty" });
 
             let patch = Patch.compare(a,b,MAP_PROPS);
-            logger.debug(patch.toString());
+            debug(patch.toString());
             expect(patch.toString()).to.equal("Map [ Row { 4, Ins { key: 4, text: tumpty } } ]");
 
             patch = Patch.compare(b,a,MAP_PROPS);
-            logger.debug(patch.toString());
+            debug(patch.toString());
         });
 
         it("Has a vaguely sane string representation for array diffs", () => {
@@ -114,11 +109,11 @@ describe("Patch", () => {
             b.push({ text: "tumpty" });
 
             let patch = Patch.compare(a,b);
-            logger.debug(patch.toString());
+            debug(patch.toString());
             expect(patch.toString()).to.equal("Arr [ Row { 1, Ins { text: tumpty } } ]");
 
             patch = Patch.compare(b,a);
-            logger.debug(patch.toString());
+            debug(patch.toString());
             expect(patch.toString()).to.equal("Arr [ Row { 1, Del } ]");
         });
 
@@ -129,12 +124,12 @@ describe("Patch", () => {
 
             let patch = Patch.compare(a,b);
             let b2 = patch.patch(a);
-            logger.debug(patch,b,b2);
+            debug(patch,b,b2);
 
             expect(b2).to.deep.equal(b);
 
             let patch2 = Patch.compare(b,a);
-            logger.debug(JSON.stringify(patch2));
+            debug(JSON.stringify(patch2));
             let a2 = patch2.patch(b);
             expect(JSON.stringify(a2)).to.equal(JSON.stringify(a));
            
@@ -147,12 +142,12 @@ describe("Patch", () => {
 
             let patch = Patch.compare(a,b,MAP_PROPS);
             let b2 = patch.patch(a,MAP_PROPS);
-            logger.debug(JSON.stringify(patch));
+            debug(JSON.stringify(patch));
 
             expect(JSON.stringify(b2)).to.equal(JSON.stringify(b));
 
             let patch2 = Patch.compare(b,a,MAP_PROPS);
-            logger.debug(JSON.stringify(patch2));
+            debug(JSON.stringify(patch2));
             let a2 = patch2.patch(b,MAP_PROPS);
             expect(JSON.stringify(a2)).to.equal(JSON.stringify(a));      
         });
@@ -164,31 +159,31 @@ describe("Patch", () => {
 
             let patch = Patch.compare(a,b);
             let b2 = patch.patch(a);
-            logger.debug(JSON.stringify(patch));
+            debug(JSON.stringify(patch));
 
             expect(JSON.stringify(b2)).to.equal(JSON.stringify(b));
 
             let patch2 = Patch.compare(b,a);
-            logger.debug(JSON.stringify(patch2));
+            debug(JSON.stringify(patch2));
             let a2 = patch2.patch(b);
             expect(JSON.stringify(a2)).to.equal(JSON.stringify(a));
         });
 
         it("can diff more complex objects", () => {
             let diff = Patch.compare(breakfast1, breakfast2);
-            logger.debug(diff);
-            logger.debug(diff.toJSON());
+            debug(diff);
+            debug(diff.toJSON());
         });
 
         it("can be built from JSON", () => {
             let diff = Patch.compare(breakfast1, breakfast2);
-            logger.debug(diff);
+            debug(diff);
             let json = JSON.stringify(diff.toJSON());
-            logger.debug(json);
+            debug(json);
             let diff2 = Patch.fromJSON(JSON.parse(json));
-            logger.debug(diff2);
+            debug(diff2);
             let json2 = JSON.stringify(diff2.toJSON());
-            logger.debug(json2);
+            debug(json2);
             expect(json2).to.equal(json);
         });
 
@@ -197,9 +192,9 @@ describe("Patch", () => {
             let array2 = [ article1, article2, article3 ];
 
             let diff = Patch.compare(array1, array2, ARTICLE_MAP_PROPS);
-            logger.debug(diff.toString());
+            debug(diff.toString());
             let array3=diff.patch(array1, ARTICLE_MAP_PROPS);
-            logger.debug(array3);
+            debug(array3);
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
         });
@@ -209,9 +204,9 @@ describe("Patch", () => {
             let array2 = [ article1, article2, article3 ];
 
             let diff = Patch.compare(array1, array2, ARTICLE_MAP_PROPS);
-            logger.debug(diff.toString());
+            debug(diff.toString());
             let array3=diff.patch(array1, ARTICLE_MAP_PROPS );
-            logger.debug(array3);
+            debug(array3);
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
         });
@@ -228,9 +223,9 @@ describe("Patch", () => {
             map2.set(article2.key, Object.assign(new Article(), article2, { markdown: "botulism"} ));
 
             let diff = Patch.compare(map1, map2);
-            logger.debug(diff.toString());
+            debug(diff.toString());
             let map3=diff.patch(map1, { collectionElementFactory: Article.fromJSON });
-            logger.debug(map3);
+            debug(map3);
             expect(map3.size).to.equal(3);
             expect(map3.get(article2.key)).to.be.instanceof(Article);
             expect(map3.get(article2.key).markdown).to.equal("botulism");
@@ -241,9 +236,9 @@ describe("Patch", () => {
             let array2 = [ article1, Object.assign(new Article(), article2, { markdown: "botulism"}), article3 ];
 
             let diff = Patch.compare(array1, array2, ARTICLE_MAP_PROPS);
-            logger.debug(diff.toString());
+            debug(diff.toString());
             let array3=diff.patch(array1, ARTICLE_MAP_PROPS);
-            logger.debug(array3);
+            debug(array3);
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
             expect(array3[1].markdown).to.equal("botulism");
@@ -260,10 +255,23 @@ describe("Patch", () => {
             let json2 = JSON.stringify(diff2.toJSON());
             expect(json1).to.equal(json2);
             let array3=diff2.patch(array1, ARTICLE_MAP_PROPS);
-            logger.debug(JSON.stringify(array3));
+            debug(JSON.stringify(array3));
             expect(array3).to.have.lengthOf(3);
             expect(array3[1]).to.be.instanceof(Article);
             expect(array3[1].markdown).to.equal("botulism");
+        });
+
+        it("ingores calculated attrbutes", () => {
+            class C1 { constructor(a,b) { this.a = a; this.b = b; } get sum() { return this.a + this.b; } }
+            let c1 = new C1(1,2);
+            let c2 = new C1(1,3);
+            let diff = Patch.compare(c1,c2);
+            debug(diff);
+            let c3 = diff.patch(c1, { elementType: C1 } );
+            expect(c3).to.be.an.instanceof(C1);
+            expect(c3.a).to.equal(1);
+            expect(c3.b).to.equal(3);
+            expect(c3.sum).to.equal(4);
         });
     }
 );
