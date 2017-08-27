@@ -228,6 +228,7 @@ class Map extends Op {
     * @param options options affecting how merge is performed. See {@link DEFAULT_OPTIONS}
     */
     patch(map, options) {
+        debug("Map.patch", map, options);
         options = Options.addDefaults(options);
         let result = [];
 
