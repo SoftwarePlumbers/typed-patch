@@ -55,15 +55,13 @@ class Options {
      * @param name name of propery in object
      */
     getChildOptions(obj,name) {
+        // TODO: We should perhaps look in this.defaults.elementType for a getAttrProps before we do anything else? 
         let options = this.defaults ? new Options(this.defaults) : Object.assign(new Options(this), { defaults: this });
         delete options.elementType; /// element type is not inherited by child, but elementFactory is. TODO: document
         if (obj) {
             let child = obj[name];
             if (child && typeof child === 'object') {
                 options.elementType = child.constructor;
-                if (child.constructor.fromJSON) {
-                    options.elementFactory = child.constructor.fromJSON;  
-                } 
             }
             let attr_props = {};
             if (obj.constructor && obj.constructor.getAttrProps) {

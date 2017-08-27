@@ -26,7 +26,11 @@ class ElementFactory {
         debug('ElementFactory.createElement', props, options);
         if (options.elementFactory) return options.elementFactory(props);
         if (options.elementType) {
-            let e = new options.elementType();
+            let et = options.elementType;
+            if (et.fromJSON) return et.fromJSON(props); // use a fromJSON if we have one
+            if (et.length > 0) return new et(props); // if constructor has arguments, assume it takes props
+            // Fallback to creating an empty object and using object.assign to assign properties
+            let e = new et();
             Object.assign(e, props);
             return e;
         } else {
@@ -120,6 +124,7 @@ class Rpl extends Op {
      * @param options controls how object is created {@link DEFAULT_OPTIONS}
      */
     patch(object, options) {
+        debug('Rpl', object, options);
         options = Options.addDefaults(options);
         return ElementFactory.createElement(this.data, options);
     }
@@ -173,6 +178,7 @@ class Mrg extends Op {
      * @param options Options controlling how merge will occur. See {@link  DEFAULT_OPTIONS}.
      */
     patch(object, options) {
+        debug('patch', object, options);
         options = Options.addDefaults(options);
         let props = options.mergeInPlace ? object : Object.assign({}, object);
         for (let name of Object.getOwnPropertyNames(this.data)) {
