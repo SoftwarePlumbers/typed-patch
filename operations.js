@@ -204,24 +204,6 @@ class Mrg extends Op {
     toString() { return `${this.name} { ${utils.reduce(utils.map(this.data, prop => prop.toString()), "", utils.appendString)} }` }
 }
 
-/** Represents an patch operation on an array row.
- *
- */
-class Row {
-    constructor(key, operation) {
-        console.assert(key !== undefined, "Key cannot be undefined");
-        this.key = key; this.op = operation;
-    }
-
-    toJSON() {
-        return { key: this.key, op: this.op.toJSON() };
-    }
-
-    toString() {
-        return `Row { ${this.key}, ${this.op.toString()} }`;
-    }
-}
-
 /** Merge operation for Maps (Map == iterable with a unique key)
  *
  *
@@ -249,27 +231,27 @@ class Map extends Op {
         let element_options = options.getArrayElementOptions(map);
         let i = 0;
 
-        let row = this.data[i++];
+        let [key,op] = this.data[i++] || [];
         for (let item of map) {
-            debug('loop', i, item, row);
+            debug('loop', i, item, key, op);
 
-            let comparison = row ? utils.compareWith(row.key,item,options) : 1;
+            let comparison = key ? utils.compareWith(key,item,options) : 1;
             debug('c', comparison);
 
             while (comparison < 0) {
-                debug('ins',row);
-                let value = ElementFactory.createElement(row.op.data, element_options);
-                result.push(options.entry(row.key, value));
-                row = this.data[i++];
-                comparison = row ? utils.compareWith(row.key,item,options) : 1;
+                debug('ins',key,op);
+                let value = ElementFactory.createElement(op.data, element_options);
+                result.push(options.entry(key, value));
+                [key,op] = this.data[i++] || [undefined,undefined];
+                comparison = key ? utils.compareWith(key,item,options) : 1;
             }
 
             if (comparison === 0) {
                 debug("merge", element_options);
-                let value = row.op.patch(options.value(item), element_options);
+                let value = op.patch(options.value(item), element_options);
                 debug("merged", value);
-                if (value) result.push(options.entry(row.key, value));                
-                row = this.data[i++];
+                if (value) result.push(options.entry(key, value));                
+                [key,op] = this.data[i++] || [];
             } else {
                 debug("copy");
                 result.push(item);
@@ -278,9 +260,9 @@ class Map extends Op {
         }
 
         while (i <= this.data.length) {
-            let value = ElementFactory.createElement(row.op.data, element_options);
-            result.push(options.entry(row.key, value));
-            row = this.data[i++];
+            let value = ElementFactory.createElement(op.data, element_options);
+            result.push(options.entry(key, value));
+            [key,op] = this.data[i++] || [];
         }
 
         return ElementFactory.createElement(result, options, type_hint);
@@ -300,7 +282,7 @@ class Map extends Op {
      * The JSON representation of an Map operation looks like `{ op: 'Map' data: [ <rows> ] }`
      */
     toJSON() {
-        return { op: this.name, data: this.data.map( row => row.toJSON() ) };
+        return { op: this.name, data: this.data.map( ([key,op]) => [key, op.toJSON()] ) };
     }
 
     /** Convert to String representation.
@@ -308,7 +290,7 @@ class Map extends Op {
     * The String representation of an Map operation looks like `Map [ <rows> ]`
     */
    toString() {
-        return `Map [ ${this.data.map(item => item.toString()).join(',')} ]`;
+        return `Map [ ${this.data.map(utils.mapEntryToString).join(',')} ]`;
     }
 }
 
@@ -330,18 +312,18 @@ class Arr extends Op {
         let i = 0;
         let element_options = options.getArrayElementOptions(array);
 
-        for (let row of this.data) {
+        for (let [key,op] of this.data) {
 
-            while (i < row.key) result.push(array[i++]);
+            while (i < key) result.push(array[i++]);
 
-            if (row.op instanceof Ins) {
-                result.push(ElementFactory.createElement(row.op.data, element_options));
-            } else if (row.op instanceof Mrg) {
+            if (op instanceof Ins) {
+                result.push(ElementFactory.createElement(op.data, element_options));
+            } else if (op instanceof Mrg) {
                 // This shouldn't occur, for now, as identity and equality are same thing.
-                debug('patching', row.op);
-                let patch_item = row.op.patch(array[i++], element_options);
+                debug('patching', op);
+                let patch_item = op.patch(array[i++], element_options);
                 if (patch_item != undefined) result.push(patch_item);
-            } else if (row.op === DEL) {
+            } else if (op === DEL) {
                 i++;
             }
         }
@@ -364,7 +346,7 @@ class Arr extends Op {
      * The JSON representation of an Map operation looks like `{ op: 'Map' data: [ <rows> ] }`
      */
     toJSON() {
-        return { op: this.name, data: this.data.map( row => row.toJSON() ) };
+        return { op: this.name, data: this.data.map( ([k,v]) => [k,v.toJSON()] ) };
     }
 
     /** Convert to String representation.
@@ -372,8 +354,8 @@ class Arr extends Op {
     * The String representation of an Map operation looks like `Map [ <rows> ]`
     */
    toString() {
-        return `Arr [ ${this.data.map(item => item.toString()).join(',')} ]`;
+        return `Arr [ ${this.data.map(utils.mapEntryToString).join(',')} ]`;
     }
 }
 
-module.exports = { NOP, DEL, Ins, Rpl, Mrg, Map, Arr, Op, Row };
+module.exports = { NOP, DEL, Ins, Rpl, Mrg, Map, Arr, Op };

@@ -54,15 +54,15 @@ describe("Patch", () => {
             debug(patch);
             expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
-            expect(patch.data[0].op.name).to.equal(Ops.Ins.name); 
-            expect(patch.data[0].key).to.equal(4);
+            expect(patch.data[0][1].name).to.equal(Ops.Ins.name); 
+            expect(patch.data[0][0]).to.equal(4);
 
             patch = Patch.compare(b,a);
             debug(patch);
             expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
-            expect(patch.data[0].op.name).to.equal(Ops.DEL.name);
-            expect(patch.data[0].key).to.equal(4);
+            expect(patch.data[0][1].name).to.equal(Ops.DEL.name);
+            expect(patch.data[0][0]).to.equal(4);
 
         });
 
@@ -76,15 +76,15 @@ describe("Patch", () => {
             debug(patch.toString());
             expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
-            expect(patch.data[0].op.name).to.equal(Ops.Ins.name); 
-            expect(patch.data[0].key).to.equal(4);
+            expect(patch.data[0][1].name).to.equal(Ops.Ins.name); 
+            expect(patch.data[0][0]).to.equal(4);
 
             patch = Patch.compare(b,a,MAP_PROPS);
             debug(patch);
             expect(patch.name).to.equal(Ops.Map.name);
             expect(patch.data.length).to.equal(1);
-            expect(patch.data[0].op.name).to.equal(Ops.DEL.name);
-            expect(patch.data[0].key).to.equal(4);
+            expect(patch.data[0][1].name).to.equal(Ops.DEL.name);
+            expect(patch.data[0][0]).to.equal(4);
 
         });
 
@@ -96,7 +96,7 @@ describe("Patch", () => {
 
             let patch = Patch.compare(a,b,MAP_PROPS);
             debug(patch.toString());
-            expect(patch.toString()).to.equal("Map [ Row { 4, Ins { key: 4, text: tumpty } } ]");
+            expect(patch.toString()).to.equal("Map [ [ 4, Ins { key: 4, text: tumpty } ] ]");
 
             patch = Patch.compare(b,a,MAP_PROPS);
             debug(patch.toString());
@@ -110,11 +110,11 @@ describe("Patch", () => {
 
             let patch = Patch.compare(a,b);
             debug(patch.toString());
-            expect(patch.toString()).to.equal("Arr [ Row { 1, Ins { text: tumpty } } ]");
+            expect(patch.toString()).to.equal("Arr [ [ 1, Ins { text: tumpty } ] ]");
 
             patch = Patch.compare(b,a);
             debug(patch.toString());
-            expect(patch.toString()).to.equal("Arr [ Row { 1, Del } ]");
+            expect(patch.toString()).to.equal("Arr [ [ 1, Del ] ]");
         });
 
         it("can patch maps", () => {

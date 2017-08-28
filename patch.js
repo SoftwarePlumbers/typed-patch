@@ -44,13 +44,12 @@
             ao = a[ai++]; 
         } else if (comparison > 0) {
             debug('insert');
-            patch.push(new ops.Row(options.key(bo), 
-                new ops.Ins(options.value(bo))));
+            patch.push([options.key(bo), new ops.Ins(options.value(bo))]);
             bo = b[bi++];
         } else {
             if (options.value(ao) !== options.value(bo)) {
                 let element_patch = compare(options.value(ao), options.value(bo), element_options)
-                if (element_patch != ops.NOP) patch.push(new ops.Row(options.key(bo), element_patch));
+                if (element_patch != ops.NOP) patch.push([options.key(bo), element_patch]);
             }
             else debug('skip2');
             ao = a[ai++]; 
@@ -59,17 +58,12 @@
     } while (ai <= a.length && bi <= b.length);
 
     while (ai <= a.length) {
-        patch.push(new ops.Row(options.key(ao), ops.DEL));
+        patch.push([options.key(ao), ops.DEL]);
         ao=a[ai++]; 
     }
 
     while (bi <= b.length) {
-        patch.push(
-            new ops.Row(
-                options.key(bo), 
-                new ops.Ins(options.value(bo))
-                )
-            ); 
+        patch.push([options.key(bo), new ops.Ins(options.value(bo))]); 
         bo=b[bi++]; 
     }
 
@@ -80,8 +74,8 @@ function _compareArrays(a,b,options) {
     let result = [];
 
     utils.diff(a,b, 
-        (add, index)    => { result.push(new ops.Row(index+1, new ops.Ins(add))); },
-        (remove, index) => { result.push(new ops.Row(index, ops.DEL)); },
+        (add, index)    => { result.push([index+1, new ops.Ins(add)]); },
+        (remove, index) => { result.push([index, ops.DEL]); },
         (skip, index)   => { }
         );
 
@@ -160,9 +154,9 @@ function fromJSON(object) {
             else if (object.op === ops.Mrg.name) 
                 return new ops.Mrg(utils.map(object.data, fromJSON));
             else if (object.op === ops.Map.name) 
-                return new ops.Map(object.data.map(row => new ops.Row(row.key, fromJSON(row.op))));
+                return new ops.Map(object.data.map(([key,op]) => [key, fromJSON(op)]));
             else if (object.op === ops.Arr.name) 
-                return new ops.Arr(object.data.map(row => new ops.Row(row.key, fromJSON(row.op))));
+                return new ops.Arr(object.data.map(([key,op]) => [key, fromJSON(op)]));
             else throw new Error('unknown diff.op ' + object.op);
         } else {
             return new ops.Rpl(object);   

@@ -84,6 +84,10 @@ function compare(a,b, options) {
     return compareWith(options.key(a), b, options)
 }
 
+function mapEntryToString([k,v]) {
+    return `[ ${k}, ${v} ]`;
+}
+
 function lcsTable(a, b) {
 
     let la = a.length + 1;
@@ -124,4 +128,4 @@ function diff(a, b, add, remove, skip, table = lcsTable(a,b), i = a.length-1, j 
 
 
 /** exports */
-module.exports = { map, reduce, appendString, print, compareWith, compare, lcsTable, diff };
+module.exports = { map, reduce, appendString, print, compareWith, compare, mapEntryToString, lcsTable, diff };
