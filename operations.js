@@ -82,16 +82,27 @@ class Op {
         return this.name;
     }
 
-    /** Defauly implementation of name property returns the name of the constructor 
+    /** Default implementation of name property returns the name of the constructor 
      */
     get name() { 
         return this.constructor.name; 
+    }
+
+    /** Test to see if an operation is of a particular type
+    *
+    * Since instanceof is completely useless in Node, we must provide an alternative.
+    *
+    * @param Operation constructor such as Ins, Mrg, Arr, Map, etc.. 
+    * @returns true if this operation is an instance of the prototype
+    */
+    isA(opType) {
+        return this.constructor.name === opType.name;
     }
 }
 
 /** Global Nop object - represents an empty patch that does nothing 
  */
-const NOP = new class Nop extends Op {
+class Nop extends Op {
 
     /** patch operation
      * passes through object unchanged
@@ -102,9 +113,11 @@ const NOP = new class Nop extends Op {
     }
 };
 
+const NOP = new Nop();
+
 /** Global Del object - represents a patch that deletes a property
  */
-const DEL = new class Del extends Op {
+class Del extends Op {
     /** patch operation
      * @returns undefined
      */
@@ -112,6 +125,8 @@ const DEL = new class Del extends Op {
         return undefined;
     }
 };
+
+const DEL = new Del();
 
 /** Replace operation - represents a patch that replaces a property or row in an array
  */
@@ -316,14 +331,14 @@ class Arr extends Op {
 
             while (i < key) result.push(array[i++]);
 
-            if (op instanceof Ins) {
+            if (op.isA(Ins)) {
                 result.push(ElementFactory.createElement(op.data, element_options));
-            } else if (op instanceof Mrg) {
+            } else if (op.isA(Mrg)) {
                 // This shouldn't occur, for now, as identity and equality are same thing.
                 debug('patching', op);
                 let patch_item = op.patch(array[i++], element_options);
                 if (patch_item != undefined) result.push(patch_item);
-            } else if (op === DEL) {
+            } else if (op.isA(Del)) {
                 i++;
             }
         }
@@ -358,4 +373,4 @@ class Arr extends Op {
     }
 }
 
-module.exports = { NOP, DEL, Ins, Rpl, Mrg, Map, Arr, Op };
+module.exports = { NOP, DEL, Nop, Del, Ins, Rpl, Mrg, Map, Arr, Op };

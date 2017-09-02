@@ -1,6 +1,6 @@
 {
   "name": "typed-patch",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Type-aware object patch",
   "main": "index.js",
   "scripts": {
