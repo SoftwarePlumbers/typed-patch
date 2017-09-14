@@ -20,7 +20,7 @@
  *   | `identity`                 | `(a,b)=>a===n`| Function to compare objects to see if they are the 'same'.
  */
 const DEFAULT_OPTIONS = {
-    elementFactory : false,
+    elementFactory : undefined,
     mergeInPlace : false,
     key: e=>e[0],
     value: e=>e[1],

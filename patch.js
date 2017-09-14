@@ -71,6 +71,7 @@
 }
 
 function _compareArrays(a,b,options) {
+    debug('_compareArrays %j, %j, options: %j',a,b,options)
 
     let element_options = options.getArrayElementOptions();
     let result = [];
@@ -82,7 +83,7 @@ function _compareArrays(a,b,options) {
                 let patch = compare(a,b,element_options);
                 if (patch !== ops.NOP) result.push([index, patch]);
             },
-            options.identity
+            element_options.identity
         );
 
     return new ops.Arr(result);
@@ -111,9 +112,11 @@ function _compareObjects(a,b,options) {
  * @param options (optional) options to control comparison operation (see {@link DEFAULT_OPTIONS})
  */
  function compare(a,b,options) {
+    debug('compare %j,%j options: %j', a, b, options);
+
     options = Options.addDefaults(options);
 
-    debug('comparing', a, b);
+    debug('compare - options %j', options);
     if (a === b)
         return ops.NOP;
     if (b === undefined) 

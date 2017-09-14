@@ -17,6 +17,19 @@ let article1 = new Article({ key: 1, markdown: "yes", isPublic: false });
 let article2 = new Article({ key: 2, markdown: "unflappable", isPublic: true });
 let article3 = new Article({ key: 3, markdown: "toast", isPublic: true });
 
+const MAGAZINE_ATTRIBUTES = {
+    articles: { collectionElementIdentity: (a,b)=>a.key===b.key }
+}
+
+class Magazine { 
+    constructor(props, articles) { 
+        Object.assign(this,props); 
+        this.articles = articles;
+    }  
+
+    static getAttrProps(name) { return MAGAZINE_ATTRIBUTES[name]; }
+}
+
 const MAP_PROPS = { map: true, key: e=>e.key, value: e=>e, entry: (k,v)=>v };
 const ARTICLE_MAP_PROPS = { map: true, key: e=>e.key, value: e=>e, entry: (k,v)=>v, collectionElementFactory: Article.fromJSON };
 
@@ -272,6 +285,34 @@ describe("Patch", () => {
             expect(c3.a).to.equal(1);
             expect(c3.b).to.equal(3);
             expect(c3.sum).to.equal(4);
+        });
+
+        it("uses identity function if supplied", () => {
+            let article2Clone = new Article(article2);
+            article2Clone.isPublic = false;
+            let array1 = [article1, article2, article3];
+            let array2 = [article1, article2Clone, article3];
+            let diff1 = Patch.compare(array1, array2);
+            debug('without identity function %j', diff1);
+            expect(diff1.isA(Ops.Arr)).to.be.true;
+            expect(diff1.data[0][1].isA(Ops.Del)).to.be.true;
+            expect(diff1.data[1][1].isA(Ops.Ins)).to.be.true;
+            let diff2 = Patch.compare(array1, array2, { collectionElementIdentity: (a,b)=>a.key === b.key });
+            debug('with identity function %j', diff2)
+            expect(diff2.data[0][1].isA(Ops.Mrg)).to.be.true;
+        });
+
+        it("uses identity function from AttrProps", () => {
+            let article2Clone = new Article(article2);
+            article2Clone.isPublic = false;
+            let magazine1 = new Magazine({name: 'issue1'}, [article1, article2, article3]);
+            let magazine2 = new Magazine({name: 'issue2'}, [article1, article2Clone, article3]);
+
+            let diff = Patch.compare(magazine1, magazine2);
+            debug('magazine diff %j', diff);
+            expect(diff.isA(Ops.Mrg)).to.be.true;
+            expect(diff.data.articles.isA(Ops.Arr)).to.be.true;
+            expect(diff.data.articles.data[0][1].isA(Ops.Mrg)).to.be.true;
         });
     }
 );
