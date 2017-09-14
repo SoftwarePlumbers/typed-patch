@@ -41,7 +41,26 @@ describe("Utils", () => {
             utils.diff(s1, s2, 
                 (add,i)     => { diff = `${diff}|${i}:+${add}` },
                 (remove,i)  => { diff = `${diff}|${i}:-${remove}` },
-                (skip,i)    => { diff = `${diff}|${i}:${skip}` }
+                (a,b,i)     => { diff = `${diff}|${i}:${a}` },
+                (a,b)       => a === b
+            );
+
+            logger.debug(diff);
+
+            expect(diff).to.equal("|0:-X|1:M|1:+Z|2:J|3:-Y|4:A|4:+W|4:+X|5:U|6:-Z");
+        });
+
+        it ("does array diff with comparator", () => {
+
+            let s1 = [ {k:'X'}, {k:'M'}, {k:'J'}, {k:'Y'}, {k:'A'}, {k:'U'}, {k:'Z'} ];
+            let s2 = [ {k:'M'}, {k:'Z'}, {k:'J'}, {k:'A'}, {k:'W'}, {k:'X'}, {k:'U'} ];
+            let diff = "";
+
+            utils.diff(s1, s2, 
+                (add,i)     => { diff = `${diff}|${i}:+${add.k}` },
+                (remove,i)  => { diff = `${diff}|${i}:-${remove.k}` },
+                (a,b,i)     => { diff = `${diff}|${i}:${a.k}` },
+                (a,b)       => a.k === b.k
             );
 
             logger.debug(diff);

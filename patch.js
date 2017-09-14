@@ -71,12 +71,18 @@
 }
 
 function _compareArrays(a,b,options) {
+
+    let element_options = options.getArrayElementOptions();
     let result = [];
 
     utils.diff(a,b, 
-        (add, index)    => { result.push([index+1, new ops.Ins(add)]); },
-        (remove, index) => { result.push([index, ops.DEL]); },
-        (skip, index)   => { }
+            (add, index)    => { result.push([index+1, new ops.Ins(add)]); },
+            (remove, index) => { result.push([index, ops.DEL]); },
+            (a,b, index)   => {
+                let patch = compare(a,b,element_options);
+                if (patch !== ops.NOP) result.push([index, patch]);
+            },
+            options.identity
         );
 
     return new ops.Arr(result);

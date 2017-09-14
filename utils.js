@@ -88,7 +88,7 @@ function mapEntryToString([k,v]) {
     return `[ ${k}, ${v} ]`;
 }
 
-function lcsTable(a, b) {
+function lcsTable(a, b, comparison = (x,y) => x===y) {
 
     let la = a.length + 1;
     let lb = b.length + 1;
@@ -104,7 +104,7 @@ function lcsTable(a, b) {
 
     for (let i = 0; i < a.length; i++)
         for (let j = 0; j < b.length; j++)
-            if (a[i] === b[j])
+            if (comparison(a[i],b[j]))
                 lengths[i+1][j+1] = lengths[i][j] + 1
             else
                 lengths[i+1][j+1] = Math.max(lengths[i+1][j], lengths[i][j+1])
@@ -116,21 +116,21 @@ function isArrayLike(obj) {
     return (obj.length) && ((obj.length === 0) || obj[0]);  
 }
 
-function diff(a, b, add, remove, skip, table = lcsTable(a,b), i = a.length-1, j = b.length-1) {
+function diff(a, b, add, remove, skip, comparison = (x,y) => x===y, table = lcsTable(a,b,comparison), i = a.length-1, j = b.length-1) {
 
     if (!(isArrayLike(a) && isArrayLike(b))) throw new TypeError('objects to compare must support length attribute and ordered integer attribute accessors');
     if (typeof add != 'function') throw new TypeError('add must be a function');
     if (typeof remove != 'function') throw new TypeError('remove must be a function');
     if (typeof skip != 'function') throw new TypeError('skip must be a function');
 
-    if (i >= 0 && j >= 0 && a[i] === b[j]) {
-        diff(a, b, add, remove, skip, table, i-1, j-1)
-        skip(a[i],i);
+    if (i >= 0 && j >= 0 && comparison(a[i],b[j])) {
+        diff(a, b, add, remove, skip, comparison, table, i-1, j-1)
+        skip(a[i],b[j],i);
     } else if (j >= 0 && (i === -1 || table[i+1][j] >= table[i][j+1])) {
-        diff(a, b, add, remove, skip, table, i, j-1)
+        diff(a, b, add, remove, skip, comparison, table, i, j-1)
         add(b[j],i);
     } else if (i >= 0 && (j === -1 || table[i+1][j] < table[i][j+1])) {
-        diff(a, b, add, remove, skip, table, i-1, j)
+        diff(a, b, add, remove, skip, comparison, table, i-1, j)
         remove(a[i],i);
     }
 }
