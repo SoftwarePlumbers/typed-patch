@@ -116,26 +116,21 @@ function _compareObjects(a,b,options) {
         return new ops.Rpl(b);
 
     if (typeof a === 'object' && typeof b === 'object') {
-            if (a.constructor === b.constructor) { // This isn't quite right, we can merge objects with a common base class
-                if (a instanceof Array) {
-                    if (options.map) {
-                        return _compareMaps(a,b,options);
-                    } else  {
-                        return _compareArrays(a,b,options);
-                    }
-                } else if (a instanceof Map) {
-                    return _compareMaps(a,b,options);
-                } else {
-                    return _compareObjects(a,b,options);
-                }
-            } else {
-                return new ops.Rpl(b);
+        if (utils.isArrayLike(a) && utils.isArrayLike(b)) { 
+            if (options.map) {
+                return _compareMaps(a,b,options);
+            } else  {
+                return _compareArrays(a,b,options);
             }
-        } else {
-            return new ops.Rpl(b);
-        }
+        } else if (a instanceof Map && b instanceof Map) {
+            return _compareMaps(a,b,options);
+        } else if (a.constructor === b.constructor) { // This isn't quite right, we can merge objects with a common base class
+            return _compareObjects(a,b,options);
+        } 
     }
 
+    return new ops.Rpl(b);
+}
 
 /** Convert over-the-wire JSON format back into typed patch object
 */
@@ -161,8 +156,7 @@ function fromJSON(object) {
         } else {
             return new ops.Rpl(object);   
         }    
-    }
+}
 
     /** the public API of this module. */
     module.exports = { compare, fromJSON };
-

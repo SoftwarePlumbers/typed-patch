@@ -112,7 +112,17 @@ function lcsTable(a, b) {
     return lengths;
 }
 
+function isArrayLike(obj) {
+    return (obj.length) && ((obj.length === 0) || obj[0]);  
+}
+
 function diff(a, b, add, remove, skip, table = lcsTable(a,b), i = a.length-1, j = b.length-1) {
+
+    if (!(isArrayLike(a) && isArrayLike(b))) throw new TypeError('objects to compare must support length attribute and ordered integer attribute accessors');
+    if (typeof add != 'function') throw new TypeError('add must be a function');
+    if (typeof remove != 'function') throw new TypeError('remove must be a function');
+    if (typeof skip != 'function') throw new TypeError('skip must be a function');
+
     if (i >= 0 && j >= 0 && a[i] === b[j]) {
         diff(a, b, add, remove, skip, table, i-1, j-1)
         skip(a[i],i);
@@ -128,4 +138,4 @@ function diff(a, b, add, remove, skip, table = lcsTable(a,b), i = a.length-1, j 
 
 
 /** exports */
-module.exports = { map, reduce, appendString, print, compareWith, compare, mapEntryToString, lcsTable, diff };
+module.exports = { map, reduce, appendString, print, compareWith, compare, mapEntryToString, lcsTable, diff, isArrayLike };

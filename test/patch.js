@@ -261,7 +261,7 @@ describe("Patch", () => {
             expect(array3[1].markdown).to.equal("botulism");
         });
 
-        it("ingores calculated attrbutes", () => {
+        it("ignores calculated attrbutes", () => {
             class C1 { constructor(a,b) { this.a = a; this.b = b; } get sum() { return this.a + this.b; } static fromJSON({a,b}) { return new C1(a,b); } }
             let c1 = new C1(1,2);
             let c2 = new C1(1,3);
