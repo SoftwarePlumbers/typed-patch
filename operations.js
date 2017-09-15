@@ -322,7 +322,7 @@ class Arr extends Op {
     */
     patch(array, options) {
         options = Options.addDefaults(options);
-        let result = ElementFactory.createElement([], options);
+        let result = [];
 
         let i = 0;
         let element_options = options.getArrayElementOptions(array);
@@ -344,7 +344,8 @@ class Arr extends Op {
         }
 
         while (i < array.length) result.push(array[i++]);
-        return result;
+        
+        return ElementFactory.createElement(result, options);
     }
 
     /** Create an array merge operation 
