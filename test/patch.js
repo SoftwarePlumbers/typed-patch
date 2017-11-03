@@ -79,6 +79,18 @@ describe("Patch", () => {
 
         });
 
+
+        it("can diff map with empty map", () => {
+
+            let a = new Map([[ 1, "numpty" ]]);
+            let b = new Map();
+
+            let patch = Patch.compare(a,b);
+            debug(">>>%j",patch);
+            expect(patch.name).to.equal(Ops.Map.name);
+            expect(patch.toString()).to.equal("Map [  ]")
+        });
+
         it("can diff arrays as if they are maps", () => {
 
             let a = [ { key: 1, text: "numpty" } ];

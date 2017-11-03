@@ -20,10 +20,20 @@
  *
  * Won't work with cyclic data structures.
  */
+
+
+ /** Compare two Map-like objects.
+ */
  function _compareMaps(a,b, options) {
 
-    if (a.length === 0 && b.length === 0) return ops.NOP;
-    if (a.length === 0 || b.length === 0) return new ops.Rpl(b);
+    debug(a,b);
+
+    let alength = a.size === undefined ? a.length : a.size;
+    let blength = b.size === undefined ? b.length : b.size;
+
+    if (alength === 0 && blength === 0) return ops.NOP;
+    // ops.Map([...b]) and not just ops.Rpl(b) because if b is a map it's not good JSON.
+    if (alength === 0 || blength === 0) return new ops.Map([...b]);
 
     let patch = [];
 
